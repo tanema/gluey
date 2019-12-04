@@ -1,6 +1,7 @@
 package promptui
 
 import (
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -20,7 +21,7 @@ const selectTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose
 {{- if eq .Mode 2}}
 {{.Prefix}}{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
 {{range $index, $item := .Items -}}
-{{$.Prefix}}{{$item.Index}}. {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
+{{$.Prefix}}{{if eq $.Cursor $index}}{{iconSel|blue}} {{$item.Index|blue}} {{$item.Label|blue}}{{else}}{{$item.Index}} {{$item.Label}}{{end}}
 {{else -}}
 {{.Prefix}}no results
 {{- end -}}
@@ -32,9 +33,9 @@ const selectMultiTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You 
 {{.Prefix}}{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
 {{- if eq .Mode 2}}
 {{.Prefix}}{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
-{{.Prefix}}0. Done
+{{.Prefix}}  0 Done
 {{range $index, $item := .Items -}}
-{{$.Prefix}}{{$item.Index}}. {{if $item.Chosen}}☑{{else}}☐{{end}} {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
+{{$.Prefix}}{{if eq $.Cursor $index}}{{iconSel|blue}} {{$item.Index|blue}} {{if $item.Chosen}}{{iconChk|blue}}{{else}}{{iconBox|blue}}{{end}} {{$item.Label|blue}}{{else}}  {{$item.Index}} {{if $item.Chosen}}{{iconChk}}{{else}}{{iconBox}}{{end}} {{if $item.Chosen}}{{$item.Label|cyan}}{{else}}{{$item.Label}}{{end}}{{end}}
 {{else -}}
 {{.Prefix}}no results
 {{- end -}}
@@ -150,6 +151,14 @@ func (s *Select) Run() (int, string, error) {
 	})
 	for !s.done && err == nil {
 		_, err = rl.Readline()
+		if err != nil {
+			switch {
+			case err == readline.ErrInterrupt, err.Error() == "Interrupt":
+				err = nil
+			case err == io.EOF:
+				err = nil
+			}
+		}
 	}
 	rl.Write([]byte(term.ShowCursor()))
 	rl.Clean()
@@ -325,12 +334,20 @@ func (s *Select) render(sb *term.ScreenBuf) {
 	}
 
 	if s.multiple {
-		template = selectMultiTemplate
-		templateData.Selected = ""
+		selected := []string{}
 		for _, item := range s.items {
 			if item.Chosen {
-				templateData.Selected += item.Label + " "
+				selected = append(selected, item.Label)
 			}
+		}
+
+		template = selectMultiTemplate
+		if len(selected) == 1 {
+			templateData.Selected = selected[0]
+		} else if len(selected) == 2 {
+			templateData.Selected = selected[0] + " and " + selected[1]
+		} else if len(selected) > 2 {
+			templateData.Selected = strconv.Itoa(len(selected)) + " Items"
 		}
 		templateData.HelpText = strings.Replace(templateData.HelpText, "Choose", "Toggle", 1)
 	} else if s.cursor < len(s.scope) && s.scope[s.cursor] != nil {

@@ -76,6 +76,8 @@ var funcMap = template.FuncMap{
 	"iconWarn": iconer(iconWarn),
 	"iconBad":  iconer(iconBad),
 	"iconSel":  iconer(iconSelect),
+	"iconChk":  iconer(iconCheckboxCheck),
+	"iconBox":  iconer(iconCheckbox),
 }
 
 func styler(attrs ...attribute) func(interface{}) string {
