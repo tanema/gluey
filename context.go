@@ -105,12 +105,12 @@ func (ctx *Ctx) ask(label, what string) (string, error) {
 
 // Select will propt the user with a list and will allow them to select a single option
 func (ctx *Ctx) Select(label string, items []string) (int, string, error) {
-	return (&Select{Label: label, Items: items}).Run()
+	return newSelect(ctx, label, items).Run()
 }
 
 // SelectMultiple will propt the user with a list and will allow them to select multiple options
 func (ctx *Ctx) SelectMultiple(label string, items []string) (int, string, error) {
-	return (&Select{Label: label, Items: items, Multiple: true, Chosen: make([]bool, len(items))}).Run()
+	return newMultipleSelect(ctx, label, items).Run()
 }
 
 // Confirm will prompt the user with a yes/no option. The dflt setting will decide

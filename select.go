@@ -3,19 +3,20 @@ package promptui
 import (
 	"os"
 	"strconv"
+	"strings"
+	"time"
 	"unicode"
 
 	"github.com/chzyer/readline"
-	"github.com/tanema/promptui/list"
 	"github.com/tanema/promptui/term"
 )
 
 type selectMode int
 
-const selectTemplate = `{{- if .Done}}{{iconQ}} {{.Label}}: (You chose: {{.List.Selected}}){{- else -}}
+const selectTemplate = `{{- if .Done}}{{iconQ}} {{.Label}}: (You chose: {{.Selected}}){{- else -}}
 {{iconQ}} {{.Label}}: {{if ne .SearchTerm ""}}Filter: {{.SearchTerm}}{{end}}
-{{range $index, $item := .List.Items -}}
-{{$index}}. {{if $.Multiple}}{{if (index $.Chosen $index)}}☑{{else}}☐{{end}} {{end}}{{if eq $.List.Index $index}}{{$item | blue}}{{else}}{{$item}}{{end}}
+{{range $index, $item := .FilteredItems -}}
+{{(inc $index)}}. {{if $.Multiple}}{{if (index $.Chosen $index)}}☑{{else}}☐{{end}} {{end}}{{if eq $.Index $index}}{{iconSel | blue}}{{$item | blue}}{{else}}{{$item}}{{end}}
 {{else -}}
 no results
 {{- end -}}
@@ -30,14 +31,43 @@ const (
 // Select represents a list of items used to enable selections, they can be used as search engines, menus
 // or as a list of items in a cli based prompt.
 type Select struct {
+	ctx        *Ctx
 	Label      string
 	Items      []string
 	Chosen     []bool
-	List       *list.List
 	SearchTerm string
 	mode       selectMode
 	Done       bool
 	Multiple   bool
+
+	scope  []string
+	cursor int
+	size   int
+	start  int
+}
+
+func newSelect(ctx *Ctx, label string, items []string) *Select {
+	_, rows, _ := term.Size()
+	sel := &Select{
+		ctx:   ctx,
+		Label: label,
+		Items: items,
+		scope: items,
+		size:  rows,
+	}
+	return sel
+}
+
+func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
+	_, rows, _ := term.Size()
+	sel := &Select{
+		ctx:    ctx,
+		Label:  label,
+		Items:  items,
+		Chosen: make([]bool, len(items)),
+		size:   rows,
+	}
+	return sel
 }
 
 // Run executes the select list. It displays the label and the list of items, asking the user to chose any
@@ -45,14 +75,7 @@ type Select struct {
 // the command prompt or it has received a valid value. It will return the value and an error if any
 // occurred during the select's execution.
 func (s *Select) Run() (int, string, error) {
-	l, err := list.New(s.Items, 20)
-	if err != nil {
-		return 0, "", err
-	}
 	s.Done = false
-
-	s.List = l
-
 	stdin := readline.NewCancelableStdin(os.Stdin)
 	c := &readline.Config{
 		Stdin:          stdin,
@@ -82,7 +105,8 @@ func (s *Select) Run() (int, string, error) {
 	rl.Write([]byte(term.ShowCursor()))
 	rl.Clean()
 	rl.Close()
-	return s.List.Index(), s.List.Selected(), err
+	time.Sleep(10 * time.Millisecond)
+	return s.Index(), s.Selected(), err
 }
 
 func (s *Select) listen(line []rune, key rune) bool {
@@ -90,24 +114,20 @@ func (s *Select) listen(line []rune, key rune) bool {
 	case normal:
 		switch {
 		case key == readline.CharNext || key == 'j':
-			s.List.Next()
+			s.Next()
 		case key == readline.CharPrev || key == 'k':
-			s.List.Prev()
-		case key == readline.CharBackward || key == 'h':
-			s.List.PageUp()
-		case key == readline.CharForward || key == 'l':
-			s.List.PageDown()
+			s.Prev()
 		case key == 'f' || key == '/':
 			s.mode = filtering
 		case unicode.IsNumber(key):
 			cur, err := strconv.Atoi(string(key))
 			if err == nil {
-				s.List.SetCursor(cur - 1)
+				s.SetCursor(cur - 1)
 				s.Done = true
 				return true
 			}
 		case key == readline.CharEnter && s.Multiple:
-			s.Chosen[s.List.Index()] = !s.Chosen[s.List.Index()]
+			s.Chosen[s.Index()] = !s.Chosen[s.Index()]
 		case key == readline.CharEnter && !s.Multiple:
 			s.Done = true
 			return true
@@ -117,24 +137,122 @@ func (s *Select) listen(line []rune, key rune) bool {
 		switch {
 		case key == readline.CharEsc:
 			s.mode = normal
-			s.List.CancelSearch()
+			s.CancelSearch()
 		case key == readline.CharBackspace:
 			if len(s.SearchTerm) > 0 {
 				s.SearchTerm = s.SearchTerm[:len(s.SearchTerm)-1]
-				s.List.Search(s.SearchTerm)
+				s.Search(s.SearchTerm)
 			} else {
 				s.mode = normal
-				s.List.CancelSearch()
+				s.CancelSearch()
 			}
 		case key == readline.CharEnter:
 			s.Done = true
 			return true
 		default:
 			s.SearchTerm += string(line)
-			s.List.Search(s.SearchTerm)
+			s.Search(s.SearchTerm)
 		}
 	}
 	return false
+}
+
+func (s *Select) Prev() {
+	if s.cursor > 0 {
+		s.cursor--
+	}
+
+	if s.start > s.cursor {
+		s.start = s.cursor
+	}
+}
+
+func (s *Select) Search(term string) {
+	term = strings.Trim(term, " ")
+	s.cursor = 0
+	s.start = 0
+	s.search(term)
+}
+
+func (s *Select) CancelSearch() {
+	s.cursor = 0
+	s.start = 0
+	s.scope = s.Items
+}
+
+func (s *Select) search(term string) {
+	scope := []string{}
+	for _, item := range s.Items {
+		if strings.Contains(strings.ToLower(item), strings.ToLower(term)) {
+			scope = append(scope, item)
+		}
+	}
+	s.scope = scope
+}
+
+func (s *Select) SetCursor(i int) {
+	max := len(s.scope) - 1
+	if i >= max {
+		i = max
+	}
+	if i < 0 {
+		i = 0
+	}
+	s.cursor = i
+
+	if s.start > s.cursor {
+		s.start = s.cursor
+	} else if s.start+s.size <= s.cursor {
+		s.start = s.cursor - s.size + 1
+	}
+}
+
+func (s *Select) Next() {
+	max := len(s.scope) - 1
+
+	if s.cursor < max {
+		s.cursor++
+	}
+
+	if s.start+s.size <= s.cursor {
+		s.start = s.cursor - s.size + 1
+	}
+}
+
+func (s *Select) Cursor() (int, string) {
+	selected := s.scope[s.cursor]
+	for i, item := range s.Items {
+		if item == selected {
+			return i, item
+		}
+	}
+	return -1, ""
+}
+
+func (s *Select) Index() int {
+	i, _ := s.Cursor()
+	return i
+}
+
+func (s *Select) Selected() string {
+	_, item := s.Cursor()
+	return item
+}
+
+func (s *Select) FilteredItems() []string {
+	var result []string
+	max := len(s.scope)
+	end := s.start + s.size
+
+	if end > max {
+		end = max
+	}
+
+	for i, j := s.start, 0; i < end; i, j = i+1, j+1 {
+		result = append(result, s.scope[i])
+	}
+
+	return result
 }
 
 func (s *Select) render(sb *term.ScreenBuf) {
