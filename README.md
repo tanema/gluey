@@ -1,4 +1,4 @@
-### TODO
+### sluey
 
 - [x] fmt
 - [x] ask
@@ -14,7 +14,7 @@
 
 - debreif [progress|spin|frame]
 - select
-  - better description
-  - number select
+  - formatting and description
   - linebreak long options
+  - scroll whole page options
 - frame [ color failure_text success_text timing ]

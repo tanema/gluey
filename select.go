@@ -14,9 +14,27 @@ import (
 type selectMode int
 
 const selectTemplate = `{{- if .Done}}{{iconQ}} {{.Label}}: (You chose: {{.Selected}}){{- else -}}
-{{iconQ}} {{.Label}}: {{if ne .SearchTerm ""}}Filter: {{.SearchTerm}}{{end}}
-{{range $index, $item := .FilteredItems -}}
-{{(inc $index)}}. {{if $.Multiple}}{{if (index $.Chosen $index)}}☑{{else}}☐{{end}} {{end}}{{if eq $.Index $index}}{{iconSel | blue}}{{$item | blue}}{{else}}{{$item}}{{end}}
+{{iconQ}} {{.Label}} {{.HelpText | yellow}}
+{{- if eq .Mode 1}}
+{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
+{{- if eq .Mode 2}}
+{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
+{{range $index, $item := .Items -}}
+{{$item.Index}}. {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
+{{else -}}
+no results
+{{- end -}}
+{{- end -}}`
+
+const selectMultiTemplate = `{{- if .Done}}{{iconQ}} {{.Label}}: (You chose: {{.Selected}}){{- else -}}
+{{iconQ}} {{.Label}} {{.HelpText | yellow}}
+{{- if eq .Mode 1}}
+{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
+{{- if eq .Mode 2}}
+{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
+0. Done
+{{range $index, $item := .Items -}}
+{{$item.Index}}. {{if $item.Chosen}}☑{{else}}☐{{end}} {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
 {{else -}}
 no results
 {{- end -}}
@@ -28,45 +46,73 @@ const (
 	filtering
 )
 
+type selectTemplateData struct {
+	Label      string
+	Items      []*selectItem
+	Selected   string
+	SearchTerm string
+	SelectTerm string
+	HelpText   string
+	FilterHelp string
+	SelectHelp string
+	Mode       selectMode
+	Done       bool
+	Cursor     int
+}
+
 // Select represents a list of items used to enable selections, they can be used as search engines, menus
 // or as a list of items in a cli based prompt.
 type Select struct {
 	ctx        *Ctx
-	Label      string
-	Items      []string
-	Chosen     []bool
-	SearchTerm string
+	label      string
+	items      []*selectItem
+	searchTerm string
+	selectTerm string
 	mode       selectMode
-	Done       bool
-	Multiple   bool
+	done       bool
+	cursor     int
+	multiple   bool
+	scope      []*selectItem
+	size       int
+	start      int
+}
 
-	scope  []string
-	cursor int
-	size   int
-	start  int
+type selectItem struct {
+	Label  string
+	Chosen bool
+	Index  int
+}
+
+func convertSelectItems(in []string) []*selectItem {
+	out := make([]*selectItem, len(in))
+	for i, label := range in {
+		out[i] = &selectItem{Label: label, Index: i + 1, Chosen: false}
+	}
+	return out
 }
 
 func newSelect(ctx *Ctx, label string, items []string) *Select {
 	_, rows, _ := term.Size()
 	sel := &Select{
 		ctx:   ctx,
-		Label: label,
-		Items: items,
-		scope: items,
+		label: label,
+		items: convertSelectItems(items),
 		size:  rows,
 	}
+	sel.cancelSearch()
 	return sel
 }
 
 func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
 	_, rows, _ := term.Size()
 	sel := &Select{
-		ctx:    ctx,
-		Label:  label,
-		Items:  items,
-		Chosen: make([]bool, len(items)),
-		size:   rows,
+		ctx:      ctx,
+		label:    label,
+		items:    convertSelectItems(items),
+		multiple: true,
+		size:     rows,
 	}
+	sel.cancelSearch()
 	return sel
 }
 
@@ -75,7 +121,7 @@ func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
 // the command prompt or it has received a valid value. It will return the value and an error if any
 // occurred during the select's execution.
 func (s *Select) Run() (int, string, error) {
-	s.Done = false
+	s.done = false
 	stdin := readline.NewCancelableStdin(os.Stdin)
 	c := &readline.Config{
 		Stdin:          stdin,
@@ -101,12 +147,16 @@ func (s *Select) Run() (int, string, error) {
 		s.render(sb)
 		return nil, 0, true
 	})
-	_, err = rl.Readline()
+	for !s.done && err == nil {
+		_, err = rl.Readline()
+	}
 	rl.Write([]byte(term.ShowCursor()))
 	rl.Clean()
 	rl.Close()
 	time.Sleep(10 * time.Millisecond)
-	return s.Index(), s.Selected(), err
+
+	item := s.scope[s.cursor]
+	return item.Index, item.Label, err
 }
 
 func (s *Select) listen(line []rune, key rune) bool {
@@ -114,80 +164,103 @@ func (s *Select) listen(line []rune, key rune) bool {
 	case normal:
 		switch {
 		case key == readline.CharNext || key == 'j':
-			s.Next()
+			s.next()
 		case key == readline.CharPrev || key == 'k':
-			s.Prev()
+			s.prev()
 		case key == 'f' || key == '/':
 			s.mode = filtering
-		case unicode.IsNumber(key):
-			cur, err := strconv.Atoi(string(key))
-			if err == nil {
-				s.SetCursor(cur - 1)
-				s.Done = true
+		case key == 'e':
+			s.mode = selecting
+		case unicode.IsNumber(key) && s.multiple:
+			cur, _ := strconv.Atoi(string(key))
+			if cur == 0 {
+				s.done = true
 				return true
+			} else if cur < len(s.items) {
+				s.items[cur-1].Chosen = !s.items[cur-1].Chosen
 			}
-		case key == readline.CharEnter && s.Multiple:
-			s.Chosen[s.Index()] = !s.Chosen[s.Index()]
-		case key == readline.CharEnter && !s.Multiple:
-			s.Done = true
+		case unicode.IsNumber(key) && !s.multiple:
+			cur, _ := strconv.Atoi(string(key))
+			s.SetCursor(cur - 1)
+			s.done = true
+			return true
+		case key == readline.CharEnter && s.multiple:
+			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
+		case key == readline.CharEnter && !s.multiple:
+			s.done = true
 			return true
 		}
 	case selecting:
+		switch {
+		case key == readline.CharEsc:
+			s.mode = normal
+			s.selectTerm = ""
+		case key == readline.CharBackspace:
+			if len(s.selectTerm) > 0 {
+				s.selectTerm = s.selectTerm[:len(s.selectTerm)-1]
+				cur, _ := strconv.Atoi(s.selectTerm)
+				s.SetCursor(cur + 1)
+			} else {
+				s.mode = normal
+			}
+		case key == readline.CharEnter:
+			s.done = true
+			return true
+		default:
+			s.selectTerm += string(line)
+			cur, _ := strconv.Atoi(s.selectTerm)
+			s.SetCursor(cur + 1)
+		}
 	case filtering:
 		switch {
 		case key == readline.CharEsc:
 			s.mode = normal
-			s.CancelSearch()
+			s.cancelSearch()
 		case key == readline.CharBackspace:
-			if len(s.SearchTerm) > 0 {
-				s.SearchTerm = s.SearchTerm[:len(s.SearchTerm)-1]
-				s.Search(s.SearchTerm)
+			if len(s.searchTerm) > 0 {
+				s.searchTerm = s.searchTerm[:len(s.searchTerm)-1]
+				s.search(s.searchTerm)
 			} else {
 				s.mode = normal
-				s.CancelSearch()
+				s.cancelSearch()
 			}
 		case key == readline.CharEnter:
-			s.Done = true
+			s.done = true
 			return true
 		default:
-			s.SearchTerm += string(line)
-			s.Search(s.SearchTerm)
+			s.searchTerm += string(line)
+			s.search(s.searchTerm)
 		}
 	}
 	return false
 }
 
-func (s *Select) Prev() {
+func (s *Select) prev() {
 	if s.cursor > 0 {
 		s.cursor--
 	}
-
 	if s.start > s.cursor {
 		s.start = s.cursor
 	}
 }
 
-func (s *Select) Search(term string) {
+func (s *Select) search(term string) {
 	term = strings.Trim(term, " ")
 	s.cursor = 0
 	s.start = 0
-	s.search(term)
-}
-
-func (s *Select) CancelSearch() {
-	s.cursor = 0
-	s.start = 0
-	s.scope = s.Items
-}
-
-func (s *Select) search(term string) {
-	scope := []string{}
-	for _, item := range s.Items {
-		if strings.Contains(strings.ToLower(item), strings.ToLower(term)) {
+	scope := []*selectItem{}
+	for _, item := range s.items {
+		if strings.Contains(strings.ToLower(item.Label), strings.ToLower(term)) {
 			scope = append(scope, item)
 		}
 	}
 	s.scope = scope
+}
+
+func (s *Select) cancelSearch() {
+	s.cursor = 0
+	s.start = 0
+	s.scope = s.items
 }
 
 func (s *Select) SetCursor(i int) {
@@ -199,7 +272,6 @@ func (s *Select) SetCursor(i int) {
 		i = 0
 	}
 	s.cursor = i
-
 	if s.start > s.cursor {
 		s.start = s.cursor
 	} else if s.start+s.size <= s.cursor {
@@ -207,54 +279,51 @@ func (s *Select) SetCursor(i int) {
 	}
 }
 
-func (s *Select) Next() {
+func (s *Select) next() {
 	max := len(s.scope) - 1
-
 	if s.cursor < max {
 		s.cursor++
 	}
-
 	if s.start+s.size <= s.cursor {
 		s.start = s.cursor - s.size + 1
 	}
 }
 
-func (s *Select) Cursor() (int, string) {
-	selected := s.scope[s.cursor]
-	for i, item := range s.Items {
-		if item == selected {
-			return i, item
-		}
-	}
-	return -1, ""
-}
-
-func (s *Select) Index() int {
-	i, _ := s.Cursor()
-	return i
-}
-
-func (s *Select) Selected() string {
-	_, item := s.Cursor()
-	return item
-}
-
-func (s *Select) FilteredItems() []string {
-	var result []string
-	max := len(s.scope)
-	end := s.start + s.size
-
-	if end > max {
-		end = max
-	}
-
-	for i, j := s.start, 0; i < end; i, j = i+1, j+1 {
-		result = append(result, s.scope[i])
-	}
-
-	return result
-}
-
 func (s *Select) render(sb *term.ScreenBuf) {
-	sb.WriteTmpl(selectTemplate, s)
+	var items []*selectItem
+	end := s.start + s.size
+	if end > len(s.scope) {
+		end = len(s.scope)
+	}
+	for i, j := s.start, 0; i < end; i, j = i+1, j+1 {
+		items = append(items, s.scope[i])
+	}
+
+	template := selectTemplate
+	templateData := selectTemplateData{
+		Label:      s.label,
+		Items:      items,
+		HelpText:   "(Choose with ↑ ↓ ⏎, filter with 'f')",
+		FilterHelp: "Ctrl-D anytime or Backspace now to exit",
+		SelectHelp: "e, q, or up/down anytime to exit",
+		Selected:   s.scope[s.cursor].Label,
+		SelectTerm: "Select: " + s.selectTerm,
+		SearchTerm: "Filter: " + s.searchTerm,
+		Mode:       s.mode,
+		Done:       s.done,
+		Cursor:     s.cursor,
+	}
+
+	if s.multiple {
+		template = selectMultiTemplate
+		templateData.Selected = ""
+		for _, item := range s.items {
+			if item.Chosen {
+				templateData.Selected += item.Label + " "
+			}
+		}
+		templateData.HelpText = "(Toggle options. Choose with ↑ ↓ ⏎, filter with 'f')"
+	}
+
+	sb.WriteTmpl(template, templateData)
 }

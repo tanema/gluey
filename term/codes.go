@@ -76,10 +76,6 @@ var funcMap = template.FuncMap{
 	"iconWarn": iconer(iconWarn),
 	"iconBad":  iconer(iconBad),
 	"iconSel":  iconer(iconSelect),
-
-	"inc": func(i int) int {
-		return i + 1
-	},
 }
 
 func styler(attrs ...attribute) func(interface{}) string {
