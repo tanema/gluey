@@ -194,38 +194,40 @@ func (s *Select) listen(line []rune, key rune) bool {
 			s.SetCursor(cur - 1)
 			s.done = true
 			return true
-		case key == readline.CharEnter && s.multiple:
+		case (key == readline.CharEnter || key == ' ') && s.multiple:
 			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
-		case key == readline.CharEnter && !s.multiple:
+		case (key == readline.CharEnter || key == ' ') && !s.multiple:
 			s.done = true
 			return true
 		}
 	case selecting:
 		switch {
-		case key == readline.CharEsc:
+		case key == readline.CharEsc || key == 'q' || key == 'e' || key == 'j' || key == 'k' || key == readline.CharNext || key == readline.CharPrev:
 			s.mode = normal
 			s.selectTerm = ""
 		case key == readline.CharBackspace:
 			if len(s.selectTerm) > 0 {
 				s.selectTerm = s.selectTerm[:len(s.selectTerm)-1]
 				cur, _ := strconv.Atoi(s.selectTerm)
-				s.SetCursor(cur + 1)
+				s.SetCursor(cur - 1)
 			} else {
 				s.mode = normal
 			}
-		case key == readline.CharEnter && s.multiple:
+		case (key == readline.CharEnter || key == ' ') && s.multiple:
 			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
-		case key == readline.CharEnter && !s.multiple:
+		case (key == readline.CharEnter || key == ' ') && !s.multiple:
 			s.done = true
 			return true
 		default:
-			s.selectTerm += string(line)
-			cur, _ := strconv.Atoi(s.selectTerm)
-			s.SetCursor(cur + 1)
+			cur, err := strconv.Atoi(s.selectTerm + string(line))
+			if err == nil {
+				s.selectTerm += string(line)
+				s.SetCursor(cur - 1)
+			}
 		}
 	case filtering:
 		switch {
-		case key == readline.CharEsc:
+		case key == readline.CharEsc || key == readline.CharDelete:
 			s.mode = normal
 			s.cancelSearch()
 		case key == readline.CharBackspace:
@@ -236,9 +238,9 @@ func (s *Select) listen(line []rune, key rune) bool {
 				s.mode = normal
 				s.cancelSearch()
 			}
-		case key == readline.CharEnter && s.multiple:
+		case (key == readline.CharEnter || key == ' ') && s.multiple:
 			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
-		case key == readline.CharEnter && !s.multiple:
+		case (key == readline.CharEnter || key == ' ') && !s.multiple:
 			s.done = true
 			return true
 		default:
