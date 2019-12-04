@@ -9,7 +9,7 @@ import (
 	"github.com/tanema/promptui/term"
 )
 
-const progressTemplate = `{{range .Items}}{{.Prefix}}{{.Title}}{{.Done | cyan}}{{.Rest}} {{.Percent}}%
+const progressTemplate = `{{range .Items}}{{.Prefix}}{{.Title}}{{.DoneBar|cyan}}{{.RestBar}} {{.Percent}}%
 {{end}}`
 
 // ProgressGroup tracks a group of progress bars
@@ -19,6 +19,7 @@ type ProgressGroup struct {
 	wg    sync.WaitGroup
 }
 
+// Progress creates a singel progress bar
 func (ctx *Ctx) Progress(total float64, fn func(*Ctx, *Bar) error) error {
 	group := &ProgressGroup{ctx: ctx}
 	group.Go("", total, fn)
@@ -65,47 +66,40 @@ func (pg *ProgressGroup) render(sb *term.ScreenBuf) {
 	sb.WriteTmpl(progressTemplate, pg)
 }
 
+// Bar is a single progress bar
 type Bar struct {
 	ctx     *Ctx
 	Title   string
+	DoneBar string
+	RestBar string
+	Prefix  string
+	Percent int
 	current float64
 	total   float64
 	err     error
 	done    bool
 }
 
-func (bar *Bar) Prefix() string {
-	return bar.ctx.Prefix()
+// Tick allows to increment the value of the bar
+func (bar *Bar) Tick(inc float64) {
+	bar.set(bar.current + inc)
 }
 
-func (bar *Bar) Percent() int {
-	return int((bar.current / bar.total) * 100)
+// Set allows to set the current value of the bar
+func (bar *Bar) Set(val float64) {
+	bar.set(val)
 }
 
-func (bar *Bar) split() (int, int) {
+func (bar *Bar) set(val float64) {
+	bar.current = math.Max(0, math.Min(val, bar.total))
+	bar.done = bar.current == bar.total
+	bar.Percent = int((bar.current / bar.total) * 100)
+
 	width, _, _ := term.Size()
 	percent := bar.current / bar.total
 	barwidth := width - bar.ctx.Indent - len(bar.Title) - 7
 	done := percent * float64(barwidth)
-	return int(done), int(math.Max(float64(barwidth)-done, 0))
-}
-
-func (bar *Bar) Done() string {
-	done, _ := bar.split()
-	return strings.Repeat("█", done)
-}
-
-func (bar *Bar) Rest() string {
-	_, rest := bar.split()
-	return strings.Repeat("█", rest)
-}
-
-func (p *Bar) Tick(inc float64) {
-	p.current = math.Min(p.current+inc, p.total)
-	p.done = p.current == p.total
-}
-
-func (p *Bar) Set(val float64) {
-	p.current = math.Max(0, math.Min(val, p.total))
-	p.done = p.current == p.total
+	bar.DoneBar = strings.Repeat("█", int(done))
+	bar.RestBar = strings.Repeat("█", int(math.Max(float64(barwidth)-done, 0)))
+	bar.Prefix = bar.ctx.Prefix()
 }

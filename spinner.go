@@ -10,7 +10,7 @@ import (
 var glyphs = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
 
 const spinTemplate = `{{- range .Items -}}
-{{$.Prefix}}{{if .Done}}{{if .Err}}{{ iconBad }}{{else}}{{ iconGood }}{{end}}{{else if $.On}}{{$.CurrentGlyph | cyan}}{{else}}{{$.CurrentGlyph}}{{end}} {{ .Title }}
+{{$.Prefix}}{{if .Done}}{{if .Err}}{{iconBad}}{{else}}{{iconGood}}{{end}}{{else if $.On}}{{$.Glyph|cyan}}{{else}}{{$.Glyph}}{{end}} {{.Title}}
 {{end}}`
 
 type spinner struct {
@@ -25,7 +25,7 @@ type SpinGroup struct {
 	ctx     *Ctx
 	Items   []*spinner
 	current int
-	On      bool
+	on      bool
 	wg      sync.WaitGroup
 }
 
@@ -73,19 +73,21 @@ func (sg *SpinGroup) Wait() error {
 func (sg *SpinGroup) next() {
 	sg.current++
 	if sg.current >= len(glyphs) {
-		sg.On = !sg.On
+		sg.on = !sg.on
 		sg.current = 0
 	}
 }
 
-func (sg *SpinGroup) CurrentGlyph() string {
-	return string(glyphs[sg.current])
-}
-
-func (sg *SpinGroup) Prefix() string {
-	return sg.ctx.Prefix()
-}
-
 func (sg *SpinGroup) render(sb *term.ScreenBuf) {
-	sb.WriteTmpl(spinTemplate, sg)
+	data := struct {
+		Glyph, Prefix string
+		Items         []*spinner
+		On            bool
+	}{
+		Glyph:  string(glyphs[sg.current]),
+		Prefix: sg.ctx.Prefix(),
+		Items:  sg.Items,
+		On:     sg.on,
+	}
+	sb.WriteTmpl(spinTemplate, data)
 }

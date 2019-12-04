@@ -263,6 +263,7 @@ func (s *Select) cancelSearch() {
 	s.scope = s.items
 }
 
+// SetCursor will set the list cursor to a single item in the list
 func (s *Select) SetCursor(i int) {
 	max := len(s.scope) - 1
 	if i >= max {
