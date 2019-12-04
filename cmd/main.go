@@ -10,7 +10,7 @@ import (
 func main() {
 	ctx := promptui.New()
 
-	ctx.Select("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
+	ctx.SelectMultiple("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
 	// ctx.Ask("Username")
 	// ctx.Password("Password")
 	// ctx.Confirm("Skip Run?", true)
