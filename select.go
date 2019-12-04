@@ -13,30 +13,30 @@ import (
 
 type selectMode int
 
-const selectTemplate = `{{- if .Done}}{{iconQ}} {{.Label}}: (You chose: {{.Selected}}){{- else -}}
+const selectTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected}}){{- else -}}
 {{iconQ}} {{.Label}} {{.HelpText | yellow}}
 {{- if eq .Mode 1}}
-{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
+{{.Prefix}}{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
 {{- if eq .Mode 2}}
-{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
+{{.Prefix}}{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
 {{range $index, $item := .Items -}}
-{{$item.Index}}. {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
+{{$.Prefix}}{{$item.Index}}. {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
 {{else -}}
-no results
+{{.Prefix}}no results
 {{- end -}}
 {{- end -}}`
 
-const selectMultiTemplate = `{{- if .Done}}{{iconQ}} {{.Label}}: (You chose: {{.Selected}}){{- else -}}
+const selectMultiTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected}}){{- else -}}
 {{iconQ}} {{.Label}} {{.HelpText | yellow}}
 {{- if eq .Mode 1}}
-{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
+{{.Prefix}}{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
 {{- if eq .Mode 2}}
-{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
-0. Done
+{{.Prefix}}{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
+{{.Prefix}}0. Done
 {{range $index, $item := .Items -}}
-{{$item.Index}}. {{if $item.Chosen}}☑{{else}}☐{{end}} {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
+{{$.Prefix}}{{$item.Index}}. {{if $item.Chosen}}☑{{else}}☐{{end}} {{if eq $.Cursor $index}}{{iconSel|blue}}{{$item.Label|blue}}{{else}}{{$item.Label}}{{end}}
 {{else -}}
-no results
+{{.Prefix}}no results
 {{- end -}}
 {{- end -}}`
 
@@ -47,6 +47,7 @@ const (
 )
 
 type selectTemplateData struct {
+	Prefix     string
 	Label      string
 	Items      []*selectItem
 	Selected   string
@@ -203,7 +204,9 @@ func (s *Select) listen(line []rune, key rune) bool {
 			} else {
 				s.mode = normal
 			}
-		case key == readline.CharEnter:
+		case key == readline.CharEnter && s.multiple:
+			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
+		case key == readline.CharEnter && !s.multiple:
 			s.done = true
 			return true
 		default:
@@ -224,7 +227,9 @@ func (s *Select) listen(line []rune, key rune) bool {
 				s.mode = normal
 				s.cancelSearch()
 			}
-		case key == readline.CharEnter:
+		case key == readline.CharEnter && s.multiple:
+			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
+		case key == readline.CharEnter && !s.multiple:
 			s.done = true
 			return true
 		default:
@@ -302,17 +307,21 @@ func (s *Select) render(sb *term.ScreenBuf) {
 
 	template := selectTemplate
 	templateData := selectTemplateData{
+		Prefix:     s.ctx.Prefix(),
 		Label:      s.label,
 		Items:      items,
 		HelpText:   "(Choose with ↑ ↓ ⏎, filter with 'f')",
 		FilterHelp: "Ctrl-D anytime or Backspace now to exit",
 		SelectHelp: "e, q, or up/down anytime to exit",
-		Selected:   s.scope[s.cursor].Label,
 		SelectTerm: "Select: " + s.selectTerm,
 		SearchTerm: "Filter: " + s.searchTerm,
 		Mode:       s.mode,
 		Done:       s.done,
 		Cursor:     s.cursor,
+	}
+
+	if len(s.items) > 9 {
+		templateData.HelpText = "(Choose with ↑ ↓ ⏎, filter with 'f', enter option with 'e')"
 	}
 
 	if s.multiple {
@@ -323,7 +332,9 @@ func (s *Select) render(sb *term.ScreenBuf) {
 				templateData.Selected += item.Label + " "
 			}
 		}
-		templateData.HelpText = "(Toggle options. Choose with ↑ ↓ ⏎, filter with 'f')"
+		templateData.HelpText = strings.Replace(templateData.HelpText, "Choose", "Toggle", 1)
+	} else if s.cursor < len(s.scope) && s.scope[s.cursor] != nil {
+		templateData.Selected = s.scope[s.cursor].Label
 	}
 
 	sb.WriteTmpl(template, templateData)

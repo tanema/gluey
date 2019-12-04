@@ -46,10 +46,9 @@ func Fmt(template string, data interface{}) string {
 
 // Ask will prompt the user for a string input and will not return until a value
 // is passed. If the value is an empty string, the user will be re-prompted.
-func (ctx *Ctx) Ask(label string) (string, error) {
-	input, err := ctx.ask(label, "")
-	if input == "" && err == nil {
-		return ctx.Ask(label)
+func (ctx *Ctx) Ask(label string) (input string, err error) {
+	ctx.Println(Fmt(`{{iconQ}} {{.}}`, label))
+	for input = ""; input == "" && err == nil; input, err = ctx.ask("") {
 	}
 	return input, err
 }
@@ -57,7 +56,8 @@ func (ctx *Ctx) Ask(label string) (string, error) {
 // AskDefault will prompt the user for a string input. If the input is an empty
 // string then the defalt value will be returned
 func (ctx *Ctx) AskDefault(label, what string) (string, error) {
-	return ctx.ask(label, what)
+	ctx.Println(Fmt(`{{iconQ}} {{.Lab}} {{.Def | faint}}`, struct{ Lab, Def string }{label, "[default = " + what + "]"}))
+	return ctx.ask(what)
 }
 
 // AskFile will prompt the user for a filepath with autocomplete
@@ -78,13 +78,7 @@ func (ctx *Ctx) AskFile(label string) (string, error) {
 	return rl.Readline()
 }
 
-func (ctx *Ctx) ask(label, what string) (string, error) {
-	question := Fmt(`{{iconQ}} {{.}}`, label)
-	if what != "" {
-		question += Fmt(` {{. | faint}}`, "[default = "+what+"]")
-	}
-	ctx.Println(question)
-
+func (ctx *Ctx) ask(what string) (string, error) {
 	prompt := Fmt(`{{.}}{{">" | blue}}`, ctx.Prefix())
 	rdl, err := readline.New(prompt + Fmt(`{{.}} `, term.Sgr("93")))
 	if err != nil {

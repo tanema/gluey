@@ -27,6 +27,9 @@ func (s *ScreenBuf) reset() {
 	s.buf.WriteString(reset)
 }
 
+// WriteTmpl will write a text/template out to the console, using a mutex so that
+// only a single writer at a time can write. This prevents the buffer from losing
+// sync with the newlines
 func (s *ScreenBuf) WriteTmpl(in string, data interface{}) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
