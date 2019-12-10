@@ -12,7 +12,7 @@ func main() {
 
 	ctx.InFrame("working", func(c *promptui.Ctx) error {
 		return c.InFrame("fill out this form", func(c *promptui.Ctx) error {
-			_, _, err := c.SelectMultiple("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other", "Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
+			_, _, err := c.Select("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
 			return err
 		})
 	})

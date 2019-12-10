@@ -95,7 +95,7 @@ func (bar *Bar) set(val float64) {
 	bar.done = bar.current == bar.total
 	bar.Percent = int((bar.current / bar.total) * 100)
 
-	width, _, _ := term.Size()
+	width, _ := term.Size()
 	percent := bar.current / bar.total
 	barwidth := width - bar.ctx.Indent - len(bar.Title) - 7
 	done := percent * float64(barwidth)

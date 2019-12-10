@@ -14,7 +14,7 @@ import (
 
 type selectMode int
 
-const selectTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected}}){{- else -}}
+const selectTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected|italic}}){{- else -}}
 {{iconQ}} {{.Label}} {{.HelpText | yellow}}
 {{- if eq .Mode 1}}
 {{.Prefix}}{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
@@ -27,7 +27,7 @@ const selectTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose
 {{- end -}}
 {{- end -}}`
 
-const selectMultiTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected}}){{- else -}}
+const selectMultiTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected|italic}}){{- else -}}
 {{iconQ}} {{.Label}} {{.HelpText | yellow}}
 {{- if eq .Mode 1}}
 {{.Prefix}}{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
@@ -94,25 +94,25 @@ func convertSelectItems(in []string) []*selectItem {
 }
 
 func newSelect(ctx *Ctx, label string, items []string) *Select {
-	//_, rows, _ := term.Size()
+	_, rows := term.Size()
 	sel := &Select{
 		ctx:   ctx,
 		label: label,
 		items: convertSelectItems(items),
-		size:  5,
+		size:  rows - (1 + ctx.Indent),
 	}
 	sel.cancelSearch()
 	return sel
 }
 
 func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
-	//_, rows, _ := term.Size()
+	_, rows := term.Size()
 	sel := &Select{
 		ctx:      ctx,
 		label:    label,
 		items:    convertSelectItems(items),
 		multiple: true,
-		size:     5,
+		size:     rows - (2 + ctx.Indent),
 	}
 	sel.cancelSearch()
 	return sel
@@ -143,10 +143,11 @@ func (s *Select) Run() (int, string, error) {
 
 	sb := term.NewScreenBuf(rl)
 	c.SetListener(func(line []rune, pos int, key rune) ([]rune, int, bool) {
-		if s.listen(line, key) {
+		s.listen(line, key)
+		s.render(sb)
+		if s.done {
 			stdin.Close()
 		}
-		s.render(sb)
 		return nil, 0, true
 	})
 	for !s.done && err == nil {
@@ -169,7 +170,7 @@ func (s *Select) Run() (int, string, error) {
 	return item.Index, item.Label, err
 }
 
-func (s *Select) listen(line []rune, key rune) bool {
+func (s *Select) listen(line []rune, key rune) {
 	switch s.mode {
 	case normal:
 		switch {
@@ -181,24 +182,10 @@ func (s *Select) listen(line []rune, key rune) bool {
 			s.mode = filtering
 		case key == 'e':
 			s.mode = selecting
-		case unicode.IsNumber(key) && s.multiple:
-			cur, _ := strconv.Atoi(string(key))
-			if cur == 0 {
-				s.done = true
-				return true
-			} else if cur < len(s.items) {
-				s.items[cur-1].Chosen = !s.items[cur-1].Chosen
-			}
-		case unicode.IsNumber(key) && !s.multiple:
-			cur, _ := strconv.Atoi(string(key))
-			s.SetCursor(cur - 1)
-			s.done = true
-			return true
-		case (key == readline.CharEnter || key == ' ') && s.multiple:
-			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
-		case (key == readline.CharEnter || key == ' ') && !s.multiple:
-			s.done = true
-			return true
+		case unicode.IsNumber(key):
+			s.keyedSelectItem(key)
+		case key == readline.CharEnter || key == ' ':
+			s.selectItem(s.cursor)
 		}
 	case selecting:
 		switch {
@@ -213,11 +200,8 @@ func (s *Select) listen(line []rune, key rune) bool {
 			} else {
 				s.mode = normal
 			}
-		case (key == readline.CharEnter || key == ' ') && s.multiple:
-			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
-		case (key == readline.CharEnter || key == ' ') && !s.multiple:
-			s.done = true
-			return true
+		case key == readline.CharEnter || key == ' ':
+			s.selectItem(s.cursor)
 		default:
 			cur, err := strconv.Atoi(s.selectTerm + string(line))
 			if err == nil {
@@ -227,36 +211,44 @@ func (s *Select) listen(line []rune, key rune) bool {
 		}
 	case filtering:
 		switch {
+		case key == readline.CharNext || key == 'j':
+			s.next()
+		case key == readline.CharPrev || key == 'k':
+			s.prev()
 		case key == readline.CharEsc || key == readline.CharDelete:
-			s.mode = normal
 			s.cancelSearch()
 		case key == readline.CharBackspace:
 			if len(s.searchTerm) > 0 {
 				s.searchTerm = s.searchTerm[:len(s.searchTerm)-1]
 				s.search(s.searchTerm)
 			} else {
-				s.mode = normal
 				s.cancelSearch()
 			}
-		case (key == readline.CharEnter || key == ' ') && s.multiple:
-			s.scope[s.cursor].Chosen = !s.scope[s.cursor].Chosen
-		case (key == readline.CharEnter || key == ' ') && !s.multiple:
-			s.done = true
-			return true
+		case key == readline.CharEnter || key == ' ':
+			s.selectItem(s.cursor)
 		default:
 			s.searchTerm += string(line)
 			s.search(s.searchTerm)
 		}
 	}
-	return false
 }
 
-func (s *Select) prev() {
-	if s.cursor > 0 {
-		s.cursor--
+func (s *Select) keyedSelectItem(key rune) {
+	cur, err := strconv.Atoi(string(key))
+	if err != nil {
+		return
 	}
-	if s.start > s.cursor {
-		s.start = s.cursor
+	s.selectItem(cur - 1)
+}
+
+func (s *Select) selectItem(cursor int) {
+	if s.multiple && cursor == -1 {
+		s.done = true
+	} else if s.multiple && cursor < len(s.items) {
+		s.scope[cursor].Chosen = !s.scope[cursor].Chosen
+	} else {
+		s.SetCursor(cursor)
+		s.done = true
 	}
 }
 
@@ -274,6 +266,7 @@ func (s *Select) search(term string) {
 }
 
 func (s *Select) cancelSearch() {
+	s.mode = normal
 	s.cursor = 0
 	s.start = 0
 	s.scope = s.items
@@ -281,14 +274,7 @@ func (s *Select) cancelSearch() {
 
 // SetCursor will set the list cursor to a single item in the list
 func (s *Select) SetCursor(i int) {
-	max := len(s.scope) - 1
-	if i >= max {
-		i = max
-	}
-	if i < 0 {
-		i = 0
-	}
-	s.cursor = i
+	s.cursor = clamp(i, 0, len(s.scope)-1)
 	if s.start > s.cursor {
 		s.start = s.cursor
 	} else if s.start+s.size <= s.cursor {
@@ -297,38 +283,44 @@ func (s *Select) SetCursor(i int) {
 }
 
 func (s *Select) next() {
-	max := len(s.scope) - 1
-	if s.cursor < max {
-		s.cursor++
-	}
-	if s.start+s.size <= s.cursor {
-		s.start = s.cursor - s.size + 1
+	if s.cursor >= len(s.scope)-1 {
+		s.SetCursor(0)
+	} else {
+		s.SetCursor(s.cursor + 1)
 	}
 }
 
-func (s *Select) render(sb *term.ScreenBuf) {
-	var items []*selectItem
-	end := s.start + s.size
-	if end > len(s.scope) {
-		end = len(s.scope)
+func (s *Select) prev() {
+	if s.cursor <= 0 {
+		s.SetCursor(len(s.scope) - 1)
+	} else {
+		s.SetCursor(s.cursor - 1)
 	}
-	for i, j := s.start, 0; i < end; i, j = i+1, j+1 {
+}
+
+func (s *Select) scopedItems() []*selectItem {
+	var items []*selectItem
+	for i := s.start; i < min(s.start+s.size, len(s.scope)); i++ {
 		items = append(items, s.scope[i])
 	}
+	return items
+}
 
+func (s *Select) render(sb *term.ScreenBuf) {
 	template := selectTemplate
 	templateData := selectTemplateData{
 		Prefix:     s.ctx.Prefix(),
 		Label:      s.label,
-		Items:      items,
+		Items:      s.scopedItems(),
 		HelpText:   "(Choose with ↑ ↓ ⏎, filter with 'f')",
 		FilterHelp: "Ctrl-D anytime or Backspace now to exit",
 		SelectHelp: "e, q, or up/down anytime to exit",
 		SelectTerm: "Select: " + s.selectTerm,
 		SearchTerm: "Filter: " + s.searchTerm,
+		Selected:   "<nothing>",
 		Mode:       s.mode,
 		Done:       s.done,
-		Cursor:     s.cursor,
+		Cursor:     s.cursor - s.start,
 	}
 
 	if len(s.items) > 9 {
@@ -352,9 +344,46 @@ func (s *Select) render(sb *term.ScreenBuf) {
 			templateData.Selected = strconv.Itoa(len(selected)) + " Items"
 		}
 		templateData.HelpText = strings.Replace(templateData.HelpText, "Choose", "Toggle", 1)
-	} else if s.cursor < len(s.scope) && s.scope[s.cursor] != nil {
+	} else if s.scope[s.cursor] != nil {
 		templateData.Selected = s.scope[s.cursor].Label
 	}
 
 	sb.WriteTmpl(template, templateData)
+}
+
+func max(x, y int) int {
+	if x >= y {
+		return x
+	}
+	return y
+}
+
+func min(x, y int) int {
+	if x <= y {
+		return x
+	}
+	return y
+}
+
+func clamp(a, minVal, maxVal int) int {
+	return max(min(a, maxVal), minVal)
+}
+
+func wordWrap(text string, lineWidth int) string {
+	words := strings.Fields(strings.TrimSpace(text))
+	if len(words) == 0 {
+		return text
+	}
+	wrapped := words[0]
+	spaceLeft := lineWidth - len(wrapped)
+	for _, word := range words[1:] {
+		if len(word)+1 > spaceLeft {
+			wrapped += "\n" + word
+			spaceLeft = lineWidth - len(word)
+		} else {
+			wrapped += " " + word
+			spaceLeft -= 1 + len(word)
+		}
+	}
+	return wrapped
 }

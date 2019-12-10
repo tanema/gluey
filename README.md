@@ -5,7 +5,7 @@
 - [x] confirm
 - [x] password
 - [x] select
-- [ ] selectMany
+- [x] selectMany
 - [x] formmated output
 - [x] frame
 - [x] spinner
@@ -16,5 +16,4 @@
 - select
   - formatting and description
   - linebreak long options
-  - scroll whole page options
 - frame [ color failure_text success_text timing ]
