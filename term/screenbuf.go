@@ -5,7 +5,26 @@ import (
 	"github.com/k0kubun/go-ansi"
 	"io"
 	"sync"
+	"text/template"
 )
+
+// Sprintf formats a string template and outputs console ready text
+func Sprintf(in string, data interface{}) string {
+	return string(renderStringTemplate(in, data))
+}
+
+func renderStringTemplate(in string, data interface{}) []byte {
+	tpl, err := template.New("").Funcs(funcMap).Parse(in)
+	if err != nil {
+		panic(err)
+	}
+	var buf bytes.Buffer
+	err = tpl.Execute(&buf, data)
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
 
 // ScreenBuf is a convenient way to write to terminal screens. It creates,
 // clears and, moves up or down lines as needed to write the output to the
@@ -23,7 +42,7 @@ func NewScreenBuf(w io.Writer) *ScreenBuf {
 }
 
 func (s *ScreenBuf) reset() {
-	for i := 0; i < bytes.Count(s.buf.Bytes(), []byte("\n")); i++ {
+	for i := 0; i < bytes.Count(s.buf.Bytes(), []byte("\r")); i++ {
 		ansi.CursorPreviousLine(0)
 		ansi.EraseInLine(3)
 	}
