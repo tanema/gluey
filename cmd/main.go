@@ -19,7 +19,7 @@ func main() {
 			return c.Progress(100, func(c *gluey.Ctx, bar *gluey.Bar) error {
 				for i := 1; i <= 100; i++ {
 					bar.Tick(1)
-					time.Sleep(10 * time.Millisecond)
+					time.Sleep(1 * time.Millisecond)
 				}
 				return nil
 			})
@@ -29,14 +29,14 @@ func main() {
 		pgroup.Go("Git Clone", 100, func(c *gluey.Ctx, bar *gluey.Bar) error {
 			for i := 1; i <= 100; i++ {
 				bar.Tick(1)
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(1 * time.Millisecond)
 			}
 			return nil
 		})
 		pgroup.Go("Docker Image", 200, func(c *gluey.Ctx, bar *gluey.Bar) error {
 			for i := 1; i <= 100; i++ {
 				bar.Tick(2)
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(1 * time.Millisecond)
 				if i == 50 {
 					return errors.New("connection error")
 				}
