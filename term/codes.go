@@ -19,9 +19,7 @@ const (
 	fGFaint     attribute = 2
 	fGItalic    attribute = 3
 	fGUnderline attribute = 4
-)
 
-const (
 	fGBlack   attribute = 30
 	fGRed     attribute = 31
 	fGGreen   attribute = 32
