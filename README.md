@@ -1,19 +1,13 @@
-### sluey
-
-- [x] fmt
-- [x] ask
-- [x] confirm
-- [x] password
-- [x] select
-- [x] selectMany
-- [x] formmated output
-- [x] frame
-- [x] spinner
-- [x] spin group
-- [x] progress
+### gluey
 
 - debreif [progress|spin|frame]
 - select
+  - default
+  - return multiple values
   - formatting and description
   - linebreak long options
 - frame [ color failure_text success_text timing ]
+  - open
+  - close
+  - divider
+  - other titles
