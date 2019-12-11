@@ -1,4 +1,4 @@
-package promptui
+package gluey
 
 import (
 	"io"
@@ -9,7 +9,7 @@ import (
 	"unicode"
 
 	"github.com/chzyer/readline"
-	"github.com/tanema/promptui/term"
+	"github.com/tanema/gluey/term"
 )
 
 type selectMode int

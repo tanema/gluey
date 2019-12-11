@@ -1,4 +1,4 @@
-package promptui
+package gluey
 
 import (
 	"log"
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
-	"github.com/tanema/promptui/term"
+	"github.com/tanema/gluey/term"
 )
 
 type fnCompleter struct{}

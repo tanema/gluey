@@ -1,10 +1,10 @@
-package promptui
+package gluey
 
 import (
 	"sync"
 	"time"
 
-	"github.com/tanema/promptui/term"
+	"github.com/tanema/gluey/term"
 )
 
 var glyphs = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")

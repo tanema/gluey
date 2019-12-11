@@ -1,4 +1,4 @@
-package promptui
+package gluey
 
 import (
 	"math"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tanema/promptui/term"
+	"github.com/tanema/gluey/term"
 )
 
 const progressTemplate = `{{range .Items}}{{.Prefix}}{{.Title}}{{.DoneBar|cyan}}{{.RestBar}} {{.Percent}}%
