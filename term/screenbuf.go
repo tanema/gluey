@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/k0kubun/go-ansi"
 	"io"
+	"strings"
 	"sync"
 	"text/template"
 )
@@ -42,11 +43,10 @@ func NewScreenBuf(w io.Writer) *ScreenBuf {
 }
 
 func (s *ScreenBuf) reset() {
-	for i := 0; i < bytes.Count(s.buf.Bytes(), []byte("\r")); i++ {
-		ansi.CursorPreviousLine(0)
-		ansi.EraseInLine(3)
-	}
+	linecount := bytes.Count(s.buf.Bytes(), []byte("\n"))
+	reset := strings.Repeat("\033[1A\033[2K", linecount)
 	s.buf.Reset()
+	s.buf.Write([]byte(reset))
 }
 
 // WriteTmpl will write a text/template out to the console, using a mutex so that
