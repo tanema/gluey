@@ -44,7 +44,7 @@ func NewScreenBuf(w io.Writer) *ScreenBuf {
 
 func (s *ScreenBuf) reset() {
 	linecount := bytes.Count(s.buf.Bytes(), []byte("\n"))
-	reset := strings.Repeat("\033[1A\033[2K", linecount)
+	reset := strings.Repeat("\033[1F\033[2K", linecount)
 	s.buf.Reset()
 	s.buf.Write([]byte(reset))
 }
