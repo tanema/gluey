@@ -12,15 +12,15 @@ func main() {
 	ctx.InFrame("starting up env", func(c *gluey.Ctx) error {
 		sgroup := c.NewSpinGroup()
 		sgroup.Go("redis", func() error {
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 			return nil
 		})
 		sgroup.Go("mysql", func() error {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1500 * time.Millisecond)
 			return nil
 		})
 		sgroup.Go("elasticsearch", func() error {
-			time.Sleep(2 * time.Second)
+			time.Sleep(4 * time.Second)
 			return errors.New("elasticseach failed to start")
 		})
 		return sgroup.Wait()
