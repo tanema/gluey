@@ -2,7 +2,6 @@ package term
 
 import (
 	"regexp"
-	"strconv"
 )
 
 const esc = "\x1b"
@@ -20,72 +19,31 @@ func StripCodes(str string) string {
 	return regexp.MustCompile(`\x1b\[[\d;]+[A-z]|\r`).ReplaceAllString(str, "")
 }
 
-// Control returns an ANSI control sequence
-func Control(args, cmd string) string {
+func control(args, cmd string) string {
 	return esc + "[" + args + cmd
 }
 
-// Sgr generates a color code https://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-func Sgr(params string) string {
-	return Control(params, "m")
-}
-
-// CursorUp move the cursor up n lines
-func CursorUp(n int) string {
-	return Control(strconv.Itoa(n), "A")
-}
-
-// CursorDown moves the cursor down n lines
-func CursorDown(n int) string {
-	return Control(strconv.Itoa(n), "B")
-}
-
-// CursorForward moves the cursor down n lines
-func CursorForward(n int) string {
-	return Control(strconv.Itoa(n), "C")
-}
-
-// CursorBack moves the cursor back n columns
-func CursorBack(n int) string {
-	return Control(strconv.Itoa(n), "D")
-}
-
-// CursorHorizontalAbsolute moves the cursor to a specific column
-func CursorHorizontalAbsolute(n int) string {
-	return Control(strconv.Itoa(n), "G")
+// ColorStart generates a color code https://en.wikipedia.org/wiki/ANSI_escape_code#graphics
+func ColorStart(params string) string {
+	return control(params, "m")
 }
 
 // ShowCursor shows the cursor
 func ShowCursor() string {
-	return Control("", "?25h")
+	return control("", "?25h")
 }
 
 // HideCursor hide the cursor
 func HideCursor() string {
-	return Control("", "?25l")
-}
-
-// CursorSave saves the cursor position
-func CursorSave() string {
-	return Control("", "s")
-}
-
-// CursorRestore restores the saved cursor position
-func CursorRestore() string {
-	return Control("", "u")
-}
-
-// NextLine moves to the next line
-func NextLine() string {
-	return CursorDown(1) + CursorHorizontalAbsolute(1)
+	return control("", "?25l")
 }
 
 // PreviousLine move to the previous line
 func PreviousLine() string {
-	return CursorUp(1) + CursorHorizontalAbsolute(1)
+	return control("1", "A") + control("1", "G")
 }
 
 // ClearToEndOfLine will clear from the cursor position to the end
 func ClearToEndOfLine() string {
-	return Control("", "K")
+	return control("", "K")
 }

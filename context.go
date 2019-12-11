@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/k0kubun/go-ansi"
 	"github.com/tanema/gluey/term"
 )
 
@@ -35,7 +36,7 @@ type Ctx struct {
 // New builds a new UI context that every element will be based on
 func New() *Ctx {
 	return &Ctx{
-		Logger: log.New(os.Stdout, "", 0),
+		Logger: log.New(ansi.NewAnsiStdout(), "", 0),
 	}
 }
 
@@ -79,8 +80,8 @@ func (ctx *Ctx) AskFile(label string) (string, error) {
 }
 
 func (ctx *Ctx) ask(what string) (string, error) {
-	prompt := Fmt(`{{.}}{{">" | blue}}`, ctx.Prefix())
-	rdl, err := readline.New(prompt + Fmt(`{{.}} `, term.Sgr("93")))
+	prompt := Fmt(`{{.}}{{">" | blue}} `, ctx.Prefix())
+	rdl, err := readline.New(prompt + term.ColorStart("93"))
 	if err != nil {
 		return "", err
 	}

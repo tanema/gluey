@@ -22,7 +22,7 @@ func NewScreenBuf(w io.Writer) *ScreenBuf {
 }
 
 func (s *ScreenBuf) reset() {
-	reset := strings.Repeat("\033[1A\033[2K\r", bytes.Count(s.buf.Bytes(), []byte("\n")))
+	reset := strings.Repeat(PreviousLine()+ClearToEndOfLine(), bytes.Count(s.buf.Bytes(), []byte("\n")))
 	s.buf.Reset()
 	s.buf.WriteString(reset)
 }
