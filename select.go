@@ -127,6 +127,7 @@ func (s *Select) Run() (int, string, error) {
 	stdin := readline.NewCancelableStdin(os.Stdin)
 	c := &readline.Config{
 		Stdin:          stdin,
+		Stdout:         s.ctx.Writer(),
 		HistoryLimit:   -1,
 		UniqueEditLine: true,
 	}
