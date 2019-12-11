@@ -54,7 +54,10 @@ func (sg *SpinGroup) Go(title string, fn func() error) {
 // Wait will pause until all spinners are complete
 func (sg *SpinGroup) Wait() error {
 	done := false
+
 	sb := term.NewScreenBuf(sg.ctx.Writer())
+	defer sb.Done()
+
 	go func() {
 		for !done {
 			sg.next()

@@ -2,8 +2,8 @@ package term
 
 import (
 	"bytes"
+	"github.com/k0kubun/go-ansi"
 	"io"
-	"strings"
 	"sync"
 )
 
@@ -18,13 +18,16 @@ type ScreenBuf struct {
 
 // NewScreenBuf creates and initializes a new ScreenBuf.
 func NewScreenBuf(w io.Writer) *ScreenBuf {
+	ansi.CursorHide()
 	return &ScreenBuf{buf: &bytes.Buffer{}, w: w}
 }
 
 func (s *ScreenBuf) reset() {
-	reset := strings.Repeat(PreviousLine()+ClearToEndOfLine(), bytes.Count(s.buf.Bytes(), []byte("\n")))
+	for i := 0; i < bytes.Count(s.buf.Bytes(), []byte("\n")); i++ {
+		ansi.CursorPreviousLine(0)
+		ansi.EraseInLine(3)
+	}
 	s.buf.Reset()
-	s.buf.WriteString(reset)
 }
 
 // WriteTmpl will write a text/template out to the console, using a mutex so that
@@ -40,6 +43,11 @@ func (s *ScreenBuf) WriteTmpl(in string, data interface{}) {
 		tmpl = append(tmpl, []byte("\n")...)
 	}
 	s.buf.Write(tmpl)
+}
+
+// Done will show the cursor again and give back control
+func (s *ScreenBuf) Done() {
+	ansi.CursorShow()
 }
 
 func (s *ScreenBuf) flush() {

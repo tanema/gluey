@@ -50,6 +50,8 @@ func (pg *ProgressGroup) Go(title string, max float64, fn func(*Ctx, *Bar) error
 func (pg *ProgressGroup) Wait() error {
 	done := false
 	sb := term.NewScreenBuf(pg.ctx.Writer())
+	defer sb.Done()
+
 	go func() {
 		for !done {
 			pg.render(sb)

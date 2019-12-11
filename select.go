@@ -140,9 +140,9 @@ func (s *Select) Run() (int, string, error) {
 		return 0, "", err
 	}
 
-	rl.Write([]byte(term.HideCursor()))
-
 	sb := term.NewScreenBuf(rl)
+	defer sb.Done()
+
 	c.SetListener(func(line []rune, pos int, key rune) ([]rune, int, bool) {
 		s.listen(line, key)
 		s.render(sb)
@@ -162,7 +162,6 @@ func (s *Select) Run() (int, string, error) {
 			}
 		}
 	}
-	rl.Write([]byte(term.ShowCursor()))
 	rl.Clean()
 	rl.Close()
 	time.Sleep(10 * time.Millisecond)

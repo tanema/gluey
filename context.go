@@ -80,8 +80,8 @@ func (ctx *Ctx) AskFile(label string) (string, error) {
 }
 
 func (ctx *Ctx) ask(what string) (string, error) {
-	prompt := Fmt(`{{.}}{{">" | blue}} `, ctx.Prefix())
-	rdl, err := readline.New(prompt + term.ColorStart("93"))
+	prompt := Fmt(`{{.}}{{blue ">"}} {{yellow ">>"}}`, ctx.Prefix())
+	rdl, err := readline.New(prompt)
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +92,9 @@ func (ctx *Ctx) ask(what string) (string, error) {
 	}
 
 	if what != "" && result == "" {
-		ctx.Println(term.PreviousLine() + term.ClearToEndOfLine() + prompt + Fmt(` {{.|yellow}} `, what))
+		ansi.CursorPreviousLine(0)
+		ansi.EraseInLine(3)
+		ctx.Println(prompt + Fmt(`{{.|yellow}} `, what))
 		result = what
 	}
 	return result, nil

@@ -11,4 +11,9 @@ var (
 )
 
 // SpinGlyphs are used to display a spinner
-var SpinGlyphs = []rune("▁▂▃▄▅▆▇█▇▆▅▄▃")
+var SpinGlyphs = []rune("▖▌▘▀▝▐▗▂")
+
+// var SpinGlyphs = []rune("▁▂▃▄▅▆▇█▇▆▅▄▃")
+
+// "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+// "▖▌▘▀▝▐▗▂"

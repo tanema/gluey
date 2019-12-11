@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 	"text/template"
 )
 
@@ -16,7 +15,6 @@ type icon struct {
 }
 
 const (
-	reset       attribute = 0
 	fGBold      attribute = 1
 	fGFaint     attribute = 2
 	fGItalic    attribute = 3
@@ -44,8 +42,6 @@ const (
 	bGCyan
 	bGWhite
 )
-
-var resetCode = fmt.Sprintf("\033[%dm", reset)
 
 var funcMap = template.FuncMap{
 	"black":   styler(fGBlack),
@@ -80,26 +76,18 @@ var funcMap = template.FuncMap{
 	"iconBox":  iconer(iconCheckbox),
 }
 
-func styler(attrs ...attribute) func(interface{}) string {
-	attrstrs := make([]string, len(attrs))
-	for i, v := range attrs {
-		attrstrs[i] = strconv.Itoa(int(v))
-	}
-	seq := strings.Join(attrstrs, ";")
+func styler(attr attribute) func(interface{}) string {
 	return func(v interface{}) string {
-		end := ""
 		s, ok := v.(string)
-		if !ok || !strings.HasSuffix(s, resetCode) {
-			end = resetCode
+		if ok && s == ">>" {
+			return fmt.Sprintf("\033[%sm", strconv.Itoa(int(attr)))
 		}
-		return fmt.Sprintf("\033[%sm%v%s", seq, v, end)
+		return fmt.Sprintf("\033[%sm%v%s", strconv.Itoa(int(attr)), v, "\033[0m")
 	}
 }
 
 func iconer(ic icon) func() string {
-	return func() string {
-		return styler(ic.color)(ic.char)
-	}
+	return func() string { return styler(ic.color)(ic.char) }
 }
 
 // Sprintf formats a string template and outputs console ready text
