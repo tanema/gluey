@@ -7,6 +7,8 @@ import (
 	"github.com/tanema/gluey/term"
 )
 
+var glyphs = []rune(`|/-\`)
+
 const spinTemplate = `{{- range .Items -}}
 {{$.Prefix}}{{if .Done}}{{if .Err}}{{iconBad}}{{else}}{{iconGood}}{{end}}{{else if $.On}}{{$.Glyph|cyan}}{{else}}{{$.Glyph}}{{end}} {{.Title}}
 {{end}}`
@@ -62,7 +64,7 @@ func (sg *SpinGroup) Wait() error {
 		for !done {
 			sg.next()
 			sg.render(sb)
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(80 * time.Millisecond)
 		}
 	}()
 	sg.wg.Wait()
@@ -73,7 +75,7 @@ func (sg *SpinGroup) Wait() error {
 
 func (sg *SpinGroup) next() {
 	sg.current++
-	if sg.current >= len(term.SpinGlyphs) {
+	if sg.current >= len(glyphs) {
 		sg.on = !sg.on
 		sg.current = 0
 	}
@@ -85,7 +87,7 @@ func (sg *SpinGroup) render(sb *term.ScreenBuf) {
 		Items         []*spinner
 		On            bool
 	}{
-		Glyph:  string(term.SpinGlyphs[sg.current]),
+		Glyph:  string(glyphs[sg.current]),
 		Prefix: sg.ctx.Prefix(),
 		Items:  sg.Items,
 		On:     sg.on,

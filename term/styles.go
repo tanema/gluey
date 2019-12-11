@@ -11,7 +11,3 @@ var (
 	iconCheckboxCheck = icon{fGBold, "☑"}
 	iconCheckbox      = icon{fGBold, "☐"}
 )
-
-// SpinGlyphs are used to display a spinner
-//var SpinGlyphs = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
-var SpinGlyphs = []rune("◴◷◶◵◐◓◑◒")
