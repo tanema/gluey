@@ -9,24 +9,6 @@ import (
 
 func main() {
 	ctx := gluey.New()
-	ctx.InFrame("starting up env", func(c *gluey.Ctx) error {
-		sgroup := c.NewSpinGroup()
-		sgroup.Go("redis", func() error {
-			time.Sleep(2 * time.Second)
-			return nil
-		})
-		sgroup.Go("mysql", func() error {
-			time.Sleep(1500 * time.Millisecond)
-			return nil
-		})
-		sgroup.Go("elasticsearch", func() error {
-			time.Sleep(4 * time.Second)
-			return errors.New("elasticseach failed to start")
-		})
-		return sgroup.Wait()
-	})
-
-	return
 	ctx.AskDefault("Username", "foo")
 	ctx.Password("Password")
 	ctx.Confirm("Skip Run?", true)

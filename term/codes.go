@@ -14,6 +14,16 @@ type icon struct {
 	char  string
 }
 
+var (
+	iconInitial       = icon{fGBlue, "?"}
+	iconGood          = icon{fGGreen, "*"}
+	iconWarn          = icon{fGYellow, "⚠"}
+	iconBad           = icon{fGRed, "X"}
+	iconSelect        = icon{fGBold, ">"}
+	iconCheckboxCheck = icon{fGBold, "☑"}
+	iconCheckbox      = icon{fGBold, "☐"}
+)
+
 const (
 	fGBold      attribute = 1
 	fGFaint     attribute = 2
