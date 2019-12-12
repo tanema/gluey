@@ -12,6 +12,8 @@ var (
 	procGetConsoleScreenBufferInfo = kernel32.NewProc("GetConsoleScreenBufferInfo")
 	procSetConsoleCursorPosition   = kernel32.NewProc("SetConsoleCursorPosition")
 	procFillConsoleOutputCharacter = kernel32.NewProc("FillConsoleOutputCharacterW")
+	procGetConsoleMode             = kernel32.NewProc("GetConsoleMode")
+	procSetConsoleMode             = kernel32.NewProc("SetConsoleMode")
 )
 
 type coord struct {
@@ -53,19 +55,10 @@ func clearLine(out io.Writer) {
 
 func lockEcho() {
 	var oldState int16
-	syscall.Syscall(getConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(unsafe.Pointer(&oldState)), 0)
-	syscall.Syscall(setConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(oldState&(^(0x0002 | 0x0004))), 0)
+	syscall.Syscall(procGetConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(unsafe.Pointer(&oldState)), 0)
+	syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(oldState&(^(0x0002 | 0x0004))), 0)
 }
 
-func unlockEcho() (err error) {
-	echoLockMutex.Lock()
-	defer echoLockMutex.Unlock()
-	if !echoLocked {
-		return
-	}
-	echoLocked = false
-	if _, _, e := syscall.Syscall(setConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(oldState), 0); e != 0 {
-		err = fmt.Errorf("Can't set terminal settings")
-	}
-	return
+func unlockEcho() {
+	syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(oldState), 0)
 }
