@@ -2,6 +2,7 @@ package term
 
 import (
 	"io"
+	"os"
 	"syscall"
 	"unsafe"
 )
@@ -37,15 +38,15 @@ func ClearLines(out io.Writer, linecount int) {
 }
 
 func clearLine(out io.Writer) {
-	handle := syscall.Handle(out.Fd())
+	handle := syscall.Handle(os.Stdout.Fd())
 
 	var csbi consoleScreenBufferInfo
 	procGetConsoleScreenBufferInfo.Call(uintptr(handle), uintptr(unsafe.Pointer(&csbi)))
 
 	var w uint32
-	csbi.cursorPosition.X = 0
-	csbi.cursorPosition.Y++
+	csbi.cursorPosition.x = 0
+	csbi.cursorPosition.y++
 
 	procSetConsoleCursorPosition.Call(uintptr(handle), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))))
-	procFillConsoleOutputCharacter.Call(uintptr(handle), uintptr(' '), uintptr(csbi.size.X), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))), uintptr(unsafe.Pointer(&w)))
+	procFillConsoleOutputCharacter.Call(uintptr(handle), uintptr(' '), uintptr(csbi.size.x), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))), uintptr(unsafe.Pointer(&w)))
 }
