@@ -53,8 +53,9 @@ func clearLine(out io.Writer) {
 	procFillConsoleOutputCharacter.Call(uintptr(handle), uintptr(' '), uintptr(csbi.size.x), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))), uintptr(unsafe.Pointer(&w)))
 }
 
+var oldState int16
+
 func lockEcho() {
-	var oldState int16
 	syscall.Syscall(procGetConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(unsafe.Pointer(&oldState)), 0)
 	syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(oldState&(^(0x0002 | 0x0004))), 0)
 }
