@@ -101,6 +101,6 @@ func (bar *Bar) set(val float64) {
 	barwidth := term.Width() - bar.ctx.Indent - len(bar.Title) - 7
 	done := percent * float64(barwidth)
 	bar.DoneBar = strings.Repeat("█", int(done))
-	bar.RestBar = strings.Repeat("█", int(math.Max(float64(barwidth)-done, 0)))
+	bar.RestBar = strings.Repeat("░", int(math.Max(float64(barwidth)-done, 0)))
 	bar.Prefix = bar.ctx.Prefix()
 }
