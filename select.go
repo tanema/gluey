@@ -120,7 +120,7 @@ func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
 // value within to list. Run will keep the prompt alive until it has been canceled from
 // the command prompt or it has received a valid value. It will return the value and an error if any
 // occurred during the select's execution.
-func (s *Select) Run() ([]int, []string, error) {
+func (s *Select) run() ([]int, []string, error) {
 	s.done = false
 	stdin := readline.NewCancelableStdin(os.Stdin)
 	c := &readline.Config{

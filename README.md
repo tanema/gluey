@@ -11,9 +11,3 @@ Gluey is an opinionated graphic input library for CLI applications. It aims to h
 - select
   - weird characters during select in windows cmd.exe
   - linebreak long options
-- frame [ color failure_text success_text timing ]
-  - open
-  - close
-  - divider
-  - other titles
-  - print to a debreif window

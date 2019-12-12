@@ -101,7 +101,7 @@ func (ctx *Ctx) ask(what string) (string, error) {
 
 // Select will propt the user with a list and will allow them to select a single option
 func (ctx *Ctx) Select(label string, items []string) (int, string, error) {
-	indexes, items, err := newSelect(ctx, label, items).Run()
+	indexes, items, err := newSelect(ctx, label, items).run()
 	if len(indexes) == 0 && len(items) == 0 {
 		return -1, "", err
 	}
@@ -110,7 +110,7 @@ func (ctx *Ctx) Select(label string, items []string) (int, string, error) {
 
 // SelectMultiple will propt the user with a list and will allow them to select multiple options
 func (ctx *Ctx) SelectMultiple(label string, items []string) ([]int, []string, error) {
-	return newMultipleSelect(ctx, label, items).Run()
+	return newMultipleSelect(ctx, label, items).run()
 }
 
 // Confirm will prompt the user with a yes/no option. The dflt setting will decide
@@ -137,18 +137,12 @@ func (ctx *Ctx) Password(label string) (string, error) {
 }
 
 // InFrame will format output to be inside a frame
-func (ctx *Ctx) InFrame(title string, fn func(*Ctx) error) error {
-	ctx.Println(Fmt("{{ . | cyan }}", "┏ "+title+" "+strings.Repeat("━", term.Width()-len(title)-ctx.Indent-3)))
-	nestedCtx := &Ctx{
-		Logger: log.New(ctx.Writer(), Fmt(`{{.}}{{ "┃" | cyan }} `, ctx.Prefix()), 0),
-		Indent: ctx.Indent + 2,
-	}
-	if err := fn(nestedCtx); err != nil {
-		ctx.Println(Fmt("{{ . | red }}", "┣"+strings.Repeat("━", term.Width()-ctx.Indent-1)))
-		ctx.Println(Fmt("{{ . | red }}", "┃"+err.Error()))
-		ctx.Println(Fmt("{{ . | red }}", "┗"+strings.Repeat("━", term.Width()-ctx.Indent-1)))
-		return err
-	}
-	ctx.Println(Fmt("{{ . | cyan }}", "┗"+strings.Repeat("━", term.Width()-ctx.Indent-1)))
-	return nil
+func (ctx *Ctx) InFrame(title string, fn FrameFunc) error {
+	return newFrame(ctx).run(title, false, fn)
+}
+
+// InMeasuredFrame will format output to be inside a frame with
+// a measure of time at the end
+func (ctx *Ctx) InMeasuredFrame(title string, fn FrameFunc) error {
+	return newFrame(ctx).run(title, true, fn)
 }

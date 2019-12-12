@@ -12,9 +12,9 @@ func main() {
 	ctx.AskDefault("Username", "foo")
 	ctx.Password("Password")
 	ctx.Confirm("Skip Run?", true)
-	ctx.SelectMultiple("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
-	ctx.InFrame("working", func(c *gluey.Ctx) error {
-		c.InFrame("Cloning", func(c *gluey.Ctx) error {
+	ctx.Select("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
+	ctx.InMeasuredFrame("Build", func(c *gluey.Ctx, f *gluey.Frame) error {
+		c.InFrame("Cloning", func(c *gluey.Ctx, f *gluey.Frame) error {
 			return c.Progress(100, func(c *gluey.Ctx, bar *gluey.Bar) error {
 				for i := 1; i <= 100; i++ {
 					bar.Tick(1)
@@ -23,6 +23,10 @@ func main() {
 				return nil
 			})
 		})
+
+		c.Println("Requesting something")
+		f.Divider("Request Failed", "yellow")
+		c.Println("https failed or something")
 
 		pgroup := c.NewProgressGroup()
 		pgroup.Go("Git Clone", 100, func(c *gluey.Ctx, bar *gluey.Bar) error {
@@ -51,7 +55,7 @@ func main() {
 		})
 		pgroup.Wait()
 
-		return c.InFrame("starting up env", func(c *gluey.Ctx) error {
+		return c.InFrame("starting up env", func(c *gluey.Ctx, f *gluey.Frame) error {
 			sgroup := c.NewSpinGroup()
 			sgroup.Go("redis", func() error {
 				time.Sleep(time.Second)
