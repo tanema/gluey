@@ -92,8 +92,7 @@ func (ctx *Ctx) ask(what string) (string, error) {
 	}
 
 	if what != "" && result == "" {
-		ansi.CursorPreviousLine(0)
-		ansi.EraseInLine(3)
+		term.ClearLines(ctx.Writer(), 1)
 		ctx.Println(prompt + Fmt(`{{.|yellow}} `, what))
 		result = what
 	}
