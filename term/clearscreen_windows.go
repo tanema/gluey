@@ -50,3 +50,22 @@ func clearLine(out io.Writer) {
 	procSetConsoleCursorPosition.Call(uintptr(handle), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))))
 	procFillConsoleOutputCharacter.Call(uintptr(handle), uintptr(' '), uintptr(csbi.size.x), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))), uintptr(unsafe.Pointer(&w)))
 }
+
+func lockEcho() {
+	var oldState int16
+	syscall.Syscall(getConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(unsafe.Pointer(&oldState)), 0)
+	syscall.Syscall(setConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(oldState&(^(0x0002 | 0x0004))), 0)
+}
+
+func unlockEcho() (err error) {
+	echoLockMutex.Lock()
+	defer echoLockMutex.Unlock()
+	if !echoLocked {
+		return
+	}
+	echoLocked = false
+	if _, _, e := syscall.Syscall(setConsoleMode.Addr(), 2, uintptr(syscall.Stdout), uintptr(oldState), 0); e != 0 {
+		err = fmt.Errorf("Can't set terminal settings")
+	}
+	return
+}

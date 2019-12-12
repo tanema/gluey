@@ -38,6 +38,7 @@ type ScreenBuf struct {
 // NewScreenBuf creates and initializes a new ScreenBuf.
 func NewScreenBuf(w io.Writer) *ScreenBuf {
 	ansi.CursorHide()
+	lockEcho()
 	return &ScreenBuf{buf: &bytes.Buffer{}, w: w}
 }
 
@@ -65,6 +66,7 @@ func (s *ScreenBuf) WriteTmpl(in string, data interface{}) {
 // Done will show the cursor again and give back control
 func (s *ScreenBuf) Done() {
 	ansi.CursorShow()
+	unlockEcho()
 }
 
 func (s *ScreenBuf) flush() {
