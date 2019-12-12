@@ -69,5 +69,5 @@ func termInfo() consoleScreenBufferInfo {
 
 func size() (int, int) {
 	csbi := termInfo()
-	return csbi.size.x - 1, csbi.size.y - 1
+	return int(csbi.size.x - 1), int(csbi.size.y - 1)
 }
