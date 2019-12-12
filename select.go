@@ -120,7 +120,7 @@ func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
 // value within to list. Run will keep the prompt alive until it has been canceled from
 // the command prompt or it has received a valid value. It will return the value and an error if any
 // occurred during the select's execution.
-func (s *Select) Run() (int, string, error) {
+func (s *Select) Run() ([]int, []string, error) {
 	s.done = false
 	stdin := readline.NewCancelableStdin(os.Stdin)
 	c := &readline.Config{
@@ -130,12 +130,12 @@ func (s *Select) Run() (int, string, error) {
 		UniqueEditLine: true,
 	}
 	if err := c.Init(); err != nil {
-		return 0, "", err
+		return []int{}, []string{}, err
 	}
 
 	rl, err := readline.NewEx(c)
 	if err != nil {
-		return 0, "", err
+		return []int{}, []string{}, err
 	}
 
 	sb := term.NewScreenBuf(rl)
@@ -164,8 +164,8 @@ func (s *Select) Run() (int, string, error) {
 	rl.Close()
 	time.Sleep(10 * time.Millisecond)
 
-	item := s.scope[s.cursor]
-	return item.Index, item.Label, err
+	indexes, items := s.Selected()
+	return indexes, items, err
 }
 
 func (s *Select) listen(line []rune, key rune) {
@@ -242,10 +242,11 @@ func (s *Select) keyedSelectItem(key rune) {
 func (s *Select) selectItem(cursor int) {
 	if s.multiple && cursor == -1 {
 		s.done = true
-	} else if s.multiple && cursor < len(s.items) {
-		s.scope[cursor].Chosen = !s.scope[cursor].Chosen
-	} else {
-		s.SetCursor(cursor)
+		return
+	}
+	s.scope[cursor].Chosen = !s.scope[cursor].Chosen
+	s.SetCursor(cursor)
+	if !s.multiple {
 		s.done = true
 	}
 }
@@ -304,6 +305,41 @@ func (s *Select) scopedItems() []*selectItem {
 	return items
 }
 
+func (s *Select) selectedItems() []*selectItem {
+	selected := []*selectItem{}
+	for _, item := range s.items {
+		if item.Chosen {
+			selected = append(selected, item)
+		}
+	}
+	return selected
+}
+
+// Selected returns the options that have been chosen
+func (s *Select) Selected() ([]int, []string) {
+	indexes := []int{}
+	selected := []string{}
+	for _, item := range s.items {
+		if item.Chosen {
+			indexes = append(indexes, item.Index)
+			selected = append(selected, item.Label)
+		}
+	}
+	return indexes, selected
+}
+
+func (s *Select) selectedLabel() string {
+	selected := s.selectedItems()
+	if len(selected) == 1 {
+		return selected[0].Label
+	} else if len(selected) == 2 {
+		return selected[0].Label + " and " + selected[1].Label
+	} else if len(selected) > 2 {
+		return strconv.Itoa(len(selected)) + " Items"
+	}
+	return "<nothing>"
+}
+
 func (s *Select) render(sb *term.ScreenBuf) {
 	template := selectTemplate
 	templateData := selectTemplateData{
@@ -315,7 +351,7 @@ func (s *Select) render(sb *term.ScreenBuf) {
 		SelectHelp: "e, q, or up/down anytime to exit",
 		SelectTerm: "Select: " + s.selectTerm,
 		SearchTerm: "Filter: " + s.searchTerm,
-		Selected:   "<nothing>",
+		Selected:   s.selectedLabel(),
 		Mode:       s.mode,
 		Done:       s.done,
 		Cursor:     s.cursor - s.start,
@@ -326,24 +362,8 @@ func (s *Select) render(sb *term.ScreenBuf) {
 	}
 
 	if s.multiple {
-		selected := []string{}
-		for _, item := range s.items {
-			if item.Chosen {
-				selected = append(selected, item.Label)
-			}
-		}
-
 		template = selectMultiTemplate
-		if len(selected) == 1 {
-			templateData.Selected = selected[0]
-		} else if len(selected) == 2 {
-			templateData.Selected = selected[0] + " and " + selected[1]
-		} else if len(selected) > 2 {
-			templateData.Selected = strconv.Itoa(len(selected)) + " Items"
-		}
 		templateData.HelpText = strings.Replace(templateData.HelpText, "Choose", "Toggle", 1)
-	} else if s.scope[s.cursor] != nil {
-		templateData.Selected = s.scope[s.cursor].Label
 	}
 
 	sb.WriteTmpl(template, templateData)

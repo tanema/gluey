@@ -12,7 +12,7 @@ func main() {
 	ctx.AskDefault("Username", "foo")
 	ctx.Password("Password")
 	ctx.Confirm("Skip Run?", true)
-	ctx.Select("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
+	ctx.SelectMultiple("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
 	ctx.InFrame("working", func(c *gluey.Ctx) error {
 		c.InFrame("Cloning", func(c *gluey.Ctx) error {
 			return c.Progress(100, func(c *gluey.Ctx, bar *gluey.Bar) error {

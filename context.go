@@ -101,11 +101,15 @@ func (ctx *Ctx) ask(what string) (string, error) {
 
 // Select will propt the user with a list and will allow them to select a single option
 func (ctx *Ctx) Select(label string, items []string) (int, string, error) {
-	return newSelect(ctx, label, items).Run()
+	indexes, items, err := newSelect(ctx, label, items).Run()
+	if len(indexes) == 0 && len(items) == 0 {
+		return -1, "", err
+	}
+	return indexes[0], items[0], err
 }
 
 // SelectMultiple will propt the user with a list and will allow them to select multiple options
-func (ctx *Ctx) SelectMultiple(label string, items []string) (int, string, error) {
+func (ctx *Ctx) SelectMultiple(label string, items []string) ([]int, []string, error) {
 	return newMultipleSelect(ctx, label, items).Run()
 }
 
