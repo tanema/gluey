@@ -11,9 +11,3 @@ import (
 func ClearLines(out io.Writer, linecount int) {
 	out.Write([]byte(strings.Repeat("\x1b[0G\x1b[1A\x1b[0K", linecount)))
 }
-
-func lockEcho() {
-}
-
-func unlockEcho() {
-}
