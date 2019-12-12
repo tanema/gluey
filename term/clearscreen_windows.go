@@ -45,7 +45,7 @@ func clearLine(out io.Writer) {
 
 	var w uint32
 	csbi.cursorPosition.x = 0
-	csbi.cursorPosition.y++
+	csbi.cursorPosition.y--
 
 	procSetConsoleCursorPosition.Call(uintptr(handle), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))))
 	procFillConsoleOutputCharacter.Call(uintptr(handle), uintptr(' '), uintptr(csbi.size.x), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))), uintptr(unsafe.Pointer(&w)))
