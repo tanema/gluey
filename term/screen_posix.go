@@ -1,19 +1,26 @@
+// +build !windows
+
 package term
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 )
 
+// ClearLines will move the cursor up and clear the line out for re-rendering
+func ClearLines(out io.Writer, linecount int) {
+	out.Write([]byte(strings.Repeat("\x1b[0G\x1b[1A\x1b[0K", linecount)))
+}
+
 const (
 	defaultTermWidth  = 80
 	defaultTermHeight = 60
 )
 
-// Size will return the width and height of the terminal
-func Size() (width, height int) {
+func size() (width, height int) {
 	cmd := exec.Command("stty", "size")
 	cmd.Stdin = os.Stdin
 	out, err := cmd.Output()
@@ -30,4 +37,16 @@ func Size() (width, height int) {
 		return defaultTermWidth, defaultTermHeight
 	}
 	return width, height
+}
+
+// Width returns the column width of the terminal
+func Width() int {
+	w, _ := size()
+	return w
+}
+
+// Height returns the row size of the terminal
+func Height() int {
+	_, h := size()
+	return h
 }

@@ -39,16 +39,35 @@ func ClearLines(out io.Writer, linecount int) {
 	}
 }
 
+// Width returns the column width of the terminal
+func Width() int {
+	w, _ := size()
+	return w
+}
+
+// Height returns the row size of the terminal
+func Height() int {
+	_, h := size()
+	return h
+}
+
 func clearLine(out io.Writer) {
-	handle := syscall.Handle(os.Stdout.Fd())
-
-	var csbi consoleScreenBufferInfo
-	procGetConsoleScreenBufferInfo.Call(uintptr(handle), uintptr(unsafe.Pointer(&csbi)))
-
 	var w uint32
+	csbi := termInfo()
 	csbi.cursorPosition.x = 0
 	csbi.cursorPosition.y--
-
+	handle := syscall.Handle(os.Stdout.Fd())
 	procSetConsoleCursorPosition.Call(uintptr(handle), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))))
 	procFillConsoleOutputCharacter.Call(uintptr(handle), uintptr(' '), uintptr(csbi.size.x), uintptr(*(*int32)(unsafe.Pointer(&csbi.cursorPosition))), uintptr(unsafe.Pointer(&w)))
+}
+
+func termInfo() consoleScreenBufferInfo {
+	var csbi consoleScreenBufferInfo
+	procGetConsoleScreenBufferInfo.Call(uintptr(syscall.Handle(os.Stdout.Fd())), uintptr(unsafe.Pointer(&csbi)))
+	return csbi
+}
+
+func size() (int, int) {
+	csbi := termInfo()
+	return csbi.size.x - 1, csbi.size.y - 1
 }

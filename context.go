@@ -134,18 +134,17 @@ func (ctx *Ctx) Password(label string) (string, error) {
 
 // InFrame will format output to be inside a frame
 func (ctx *Ctx) InFrame(title string, fn func(*Ctx) error) error {
-	width, _ := term.Size()
-	ctx.Println(Fmt("{{ . | cyan }}", "┏ "+title+" "+strings.Repeat("━", width-len(title)-ctx.Indent-3)))
+	ctx.Println(Fmt("{{ . | cyan }}", "┏ "+title+" "+strings.Repeat("━", term.Width()-len(title)-ctx.Indent-3)))
 	nestedCtx := &Ctx{
 		Logger: log.New(ctx.Writer(), Fmt(`{{.}}{{ "┃" | cyan }} `, ctx.Prefix()), 0),
 		Indent: ctx.Indent + 2,
 	}
 	if err := fn(nestedCtx); err != nil {
-		ctx.Println(Fmt("{{ . | red }}", "┣"+strings.Repeat("━", width-ctx.Indent-1)))
+		ctx.Println(Fmt("{{ . | red }}", "┣"+strings.Repeat("━", term.Width()-ctx.Indent-1)))
 		ctx.Println(Fmt("{{ . | red }}", "┃"+err.Error()))
-		ctx.Println(Fmt("{{ . | red }}", "┗"+strings.Repeat("━", width-ctx.Indent-1)))
+		ctx.Println(Fmt("{{ . | red }}", "┗"+strings.Repeat("━", term.Width()-ctx.Indent-1)))
 		return err
 	}
-	ctx.Println(Fmt("{{ . | cyan }}", "┗"+strings.Repeat("━", width-ctx.Indent-1)))
+	ctx.Println(Fmt("{{ . | cyan }}", "┗"+strings.Repeat("━", term.Width()-ctx.Indent-1)))
 	return nil
 }

@@ -94,25 +94,23 @@ func convertSelectItems(in []string) []*selectItem {
 }
 
 func newSelect(ctx *Ctx, label string, items []string) *Select {
-	_, rows := term.Size()
 	sel := &Select{
 		ctx:   ctx,
 		label: label,
 		items: convertSelectItems(items),
-		size:  rows - (1 + ctx.Indent),
+		size:  term.Height() - (1 + ctx.Indent),
 	}
 	sel.cancelSearch()
 	return sel
 }
 
 func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
-	_, rows := term.Size()
 	sel := &Select{
 		ctx:      ctx,
 		label:    label,
 		items:    convertSelectItems(items),
 		multiple: true,
-		size:     rows - (2 + ctx.Indent),
+		size:     term.Height() - (2 + ctx.Indent),
 	}
 	sel.cancelSearch()
 	return sel
