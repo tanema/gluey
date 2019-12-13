@@ -18,6 +18,5 @@ ids, editors, err := ctx.SelectMultiple("Which Text Editors do you use", []strin
 
 ### Todo
 
-- screen buffer, handle lines longer than window(wrap them)
 - select weird characters during select in windows cmd.exe
 - spinner/progress groups log messages/errors while running
