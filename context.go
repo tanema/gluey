@@ -146,3 +146,26 @@ func (ctx *Ctx) InFrame(title string, fn FrameFunc) error {
 func (ctx *Ctx) InMeasuredFrame(title string, fn FrameFunc) error {
 	return newFrame(ctx).run(title, true, fn)
 }
+
+// Debreif is a convienience method to format multi error return from
+// spin groups and progress groups, it will also return the first error
+// for returning errors inside frames
+func (ctx *Ctx) Debreif(errors map[string]error) error {
+	if len(errors) == 0 {
+		return nil
+	}
+	var firstErrTitle string
+	for title, err := range errors {
+		if firstErrTitle == "" {
+			firstErrTitle = title
+		}
+
+		frame := newFrame(ctx)
+		frame.SetColor("red")
+		frame.run("Task Failed: "+title, false, func(c *Ctx, f *Frame) error {
+			c.Println(err)
+			return nil
+		})
+	}
+	return errors[firstErrTitle]
+}

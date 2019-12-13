@@ -69,7 +69,8 @@ func main() {
 				time.Sleep(2 * time.Second)
 				return errors.New("elasticseach failed to start")
 			})
-			return sgroup.Wait()
+
+			return c.Debreif(sgroup.Wait())
 		})
 	})
 }

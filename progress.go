@@ -23,7 +23,7 @@ type ProgressGroup struct {
 func (ctx *Ctx) Progress(total float64, fn func(*Ctx, *Bar) error) error {
 	group := &ProgressGroup{ctx: ctx}
 	group.Go("", total, fn)
-	return group.Wait()
+	return group.Wait()[""]
 }
 
 // NewProgressGroup will create a new progress bar group the will track multiple bars
@@ -47,7 +47,7 @@ func (pg *ProgressGroup) Go(title string, max float64, fn func(*Ctx, *Bar) error
 }
 
 // Wait will pause until all of the progress bars are complete
-func (pg *ProgressGroup) Wait() error {
+func (pg *ProgressGroup) Wait() map[string]error {
 	done := false
 	sb := term.NewScreenBuf(pg.ctx.Writer())
 	defer sb.Done()
@@ -61,7 +61,17 @@ func (pg *ProgressGroup) Wait() error {
 	pg.wg.Wait()
 	done = true
 	pg.render(sb)
-	return nil
+	return pg.errors()
+}
+
+func (pg *ProgressGroup) errors() map[string]error {
+	errs := map[string]error{}
+	for _, bar := range pg.Items {
+		if bar.err != nil {
+			errs[bar.Title] = bar.err
+		}
+	}
+	return errs
 }
 
 func (pg *ProgressGroup) render(sb *term.ScreenBuf) {

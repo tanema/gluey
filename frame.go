@@ -22,7 +22,7 @@ type Frame struct {
 func newFrame(ctx *Ctx) *Frame {
 	nestedCtx := &Ctx{Indent: ctx.Indent + 2}
 	frame := &Frame{ctx: ctx, nestedCtx: nestedCtx}
-	frame.setColor("cyan")
+	frame.SetColor("cyan")
 	return frame
 }
 
@@ -41,11 +41,12 @@ func (frame *Frame) run(title string, timed bool, fn FrameFunc) error {
 
 // Divider adds a ┣━━━━ divider to the output
 func (frame *Frame) Divider(label, color string) {
-	frame.setColor(color)
+	frame.SetColor(color)
 	frame.bar("┣", label)
 }
 
-func (frame *Frame) setColor(color string) {
+// SetColor will set the frames color
+func (frame *Frame) SetColor(color string) {
 	if color == "" {
 		return
 	}

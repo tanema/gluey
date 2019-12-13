@@ -33,7 +33,7 @@ type SpinGroup struct {
 func (ctx *Ctx) Spinner(title string, fn func() error) error {
 	group := ctx.NewSpinGroup()
 	group.Go(title, fn)
-	return group.Wait()
+	return group.Wait()[title]
 }
 
 // NewSpinGroup creates a new group of spinners to track multiple statuses
@@ -54,7 +54,7 @@ func (sg *SpinGroup) Go(title string, fn func() error) {
 }
 
 // Wait will pause until all spinners are complete
-func (sg *SpinGroup) Wait() error {
+func (sg *SpinGroup) Wait() map[string]error {
 	done := false
 
 	sb := term.NewScreenBuf(sg.ctx.Writer())
@@ -70,7 +70,17 @@ func (sg *SpinGroup) Wait() error {
 	sg.wg.Wait()
 	done = true
 	sg.render(sb)
-	return nil
+	return sg.errors()
+}
+
+func (sg *SpinGroup) errors() map[string]error {
+	errs := map[string]error{}
+	for _, spinner := range sg.Items {
+		if spinner.Err != nil {
+			errs[spinner.Title] = spinner.Err
+		}
+	}
+	return errs
 }
 
 func (sg *SpinGroup) next() {
