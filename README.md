@@ -10,14 +10,14 @@ A simple example of how easy it is to use
 
 ```
 ctx := gluey.New()
-ctx.Ask("Username") // required text input
-ctx.Password("Password") // Hidden output
-ctx.Confirm("Do you agree to our terms", true) // confirm with default to true
-ctx.SelectMultiple("Which Text Editors do you use", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"}) // Select Many
+username, err := ctx.Ask("Username") // required text input
+passwd, err := ctx.Password("Password") // Hidden output
+agree, err := ctx.Confirm("Do you agree to our terms", true) // confirm with default to true
+ids, editors, err := ctx.SelectMultiple("Which Text Editors do you use", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"}) // Select Many
 ```
 
 ### Todo
 
-- select
-  - weird characters during select in windows cmd.exe
-  - linebreak long options
+- screen buffer, handle lines longer than window(wrap them)
+- select weird characters during select in windows cmd.exe
+- spinner/progress groups log messages/errors while running

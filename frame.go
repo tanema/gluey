@@ -60,7 +60,7 @@ func (frame *Frame) bar(prefix, label string) {
 		label = strings.TrimSpace(label)
 		label = " " + label + " "
 	}
-	padding := term.Width() - len(label) - len(prefix) - frame.ctx.Indent - 1
+	padding := term.Width() - len(label) - len(prefix) - (frame.ctx.Indent - 2)
 	bar := strings.Repeat("━", padding)
 	frame.ctx.Println(Fmt("{{ . | "+frame.color+" }}", prefix+label+bar))
 }

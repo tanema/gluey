@@ -159,7 +159,6 @@ func (ctx *Ctx) Debreif(errors map[string]error) error {
 		if firstErrTitle == "" {
 			firstErrTitle = title
 		}
-
 		frame := newFrame(ctx)
 		frame.SetColor("red")
 		frame.run("Task Failed: "+title, false, func(c *Ctx, f *Frame) error {

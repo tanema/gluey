@@ -2,10 +2,13 @@ package term
 
 import (
 	"bytes"
-	"github.com/k0kubun/go-ansi"
 	"io"
+	"strings"
 	"sync"
 	"text/template"
+
+	"github.com/k0kubun/go-ansi"
+	"github.com/manifoldco/ansiwrap"
 )
 
 // Sprintf formats a string template and outputs console ready text
@@ -56,10 +59,15 @@ func (s *ScreenBuf) WriteTmpl(in string, data interface{}) {
 	s.reset()
 	defer s.flush()
 	tmpl := renderStringTemplate(in, data)
-	if tmpl[len(tmpl)-1] != byte('\n') {
-		tmpl = append(tmpl, []byte("\n")...)
+	parts := []string{}
+	termWidth := Width()
+	for _, line := range strings.Split(string(tmpl), "\n") {
+		if len(line) > 0 {
+			wrapped := ansiwrap.Wrap(line, termWidth)
+			parts = append(parts, strings.Split(wrapped, "\n")...)
+		}
 	}
-	s.buf.Write(tmpl)
+	s.buf.Write([]byte(strings.Join(parts, "\n") + "\n"))
 }
 
 // Done will show the cursor again and give back control

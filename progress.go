@@ -2,6 +2,7 @@ package gluey
 
 import (
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -85,7 +86,7 @@ type Bar struct {
 	DoneBar string
 	RestBar string
 	Prefix  string
-	Percent int
+	Percent string
 	current float64
 	total   float64
 	err     error
@@ -105,10 +106,10 @@ func (bar *Bar) Set(val float64) {
 func (bar *Bar) set(val float64) {
 	bar.current = math.Max(0, math.Min(val, bar.total))
 	bar.done = bar.current == bar.total
-	bar.Percent = int((bar.current / bar.total) * 100)
+	bar.Percent = strconv.Itoa(int((bar.current / bar.total) * 100))
 
 	percent := bar.current / bar.total
-	barwidth := term.Width() - bar.ctx.Indent - len(bar.Title) - 7
+	barwidth := term.Width() - (bar.ctx.Indent - 2) - len(bar.Title) - len(bar.Percent) - 4
 	done := percent * float64(barwidth)
 	bar.DoneBar = strings.Repeat("█", int(done))
 	bar.RestBar = strings.Repeat("░", int(math.Max(float64(barwidth)-done, 0)))

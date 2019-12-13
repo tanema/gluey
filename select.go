@@ -346,7 +346,7 @@ func (s *Select) render(sb *term.ScreenBuf) {
 		Prefix:     s.ctx.Prefix(),
 		Label:      s.label,
 		Items:      s.scopedItems(),
-		HelpText:   "(Choose with ↑ ↓ ⏎, filter with 'f')",
+		HelpText:   "(Choose with ↑ ↓ [Return], filter with 'f')",
 		FilterHelp: "Ctrl-D anytime or Backspace now to exit",
 		SelectHelp: "e, q, or up/down anytime to exit",
 		SelectTerm: "Select: " + s.selectTerm,
@@ -358,7 +358,7 @@ func (s *Select) render(sb *term.ScreenBuf) {
 	}
 
 	if len(s.items) > 9 {
-		templateData.HelpText = "(Choose with ↑ ↓ ⏎, filter with 'f', enter option with 'e')"
+		templateData.HelpText = "(Choose with ↑ ↓ [Return], filter with 'f', enter option with 'e')"
 	}
 
 	if s.multiple {
