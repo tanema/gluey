@@ -12,6 +12,14 @@ import (
 // FrameFunc is the function call that is called inside the frame
 type FrameFunc func(*Ctx, *Frame) error
 
+type barType string
+
+const (
+	barOpen   = "┏"
+	barClose  = "┗"
+	barDivide = "┣"
+)
+
 // Frame is a box around output that can be nested
 type Frame struct {
 	ctx       *Ctx
@@ -27,7 +35,7 @@ func newFrame(ctx *Ctx) *Frame {
 }
 
 func (frame *Frame) run(title string, timed bool, fn FrameFunc) error {
-	frame.bar("┏", title)
+	frame.printBar(barOpen, title)
 	start := time.Now()
 	err := fn(frame.nestedCtx, frame)
 	elapsed := time.Since(start)
@@ -35,14 +43,14 @@ func (frame *Frame) run(title string, timed bool, fn FrameFunc) error {
 	if timed {
 		closedLabel = fmt.Sprintf("%s", elapsed.Round(time.Second))
 	}
-	frame.bar("┗", closedLabel)
+	frame.printBar(barClose, closedLabel)
 	return err
 }
 
 // Divider adds a ┣━━━━ divider to the output
 func (frame *Frame) Divider(label, color string) {
 	frame.SetColor(color)
-	frame.bar("┣", label)
+	frame.printBar(barDivide, label)
 }
 
 // SetColor will set the frames color
@@ -55,12 +63,17 @@ func (frame *Frame) SetColor(color string) {
 	frame.nestedCtx.Logger = log.New(frame.ctx.Writer(), prefix, 0)
 }
 
-func (frame *Frame) bar(prefix, label string) {
+func (frame *Frame) printBar(bt barType, label string) {
+	frame.ctx.Println(frame.bar(bt, label))
+}
+
+func (frame *Frame) bar(bt barType, label string) string {
+	prefix := string(bt)
 	if len(label) > 0 {
 		label = strings.TrimSpace(label)
 		label = " " + label + " "
 	}
 	padding := term.Width() - len(label) - len(prefix) - (frame.ctx.Indent - 2)
 	bar := strings.Repeat("━", padding)
-	frame.ctx.Println(Fmt("{{ . | "+frame.color+" }}", prefix+label+bar))
+	return Fmt("{{ . | "+frame.color+" }}", prefix+label+bar)
 }

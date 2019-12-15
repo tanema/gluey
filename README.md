@@ -19,4 +19,5 @@ ids, editors, err := ctx.SelectMultiple("Which Text Editors do you use", []strin
 ### Todo
 
 - select weird characters during select in windows cmd.exe
+- select by number should auto select with larger numbers instead of changing mode
 - spinner/progress groups log messages/errors while running
