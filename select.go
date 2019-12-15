@@ -178,8 +178,6 @@ func (s *Select) listen(line []rune, key rune) {
 			s.prev()
 		case key == 'f' || key == '/':
 			s.mode = filtering
-		case key == 'e':
-			s.mode = selecting
 		case unicode.IsNumber(key):
 			s.keyedSelectItem(key)
 		case key == readline.CharEnter || key == ' ':
@@ -187,7 +185,7 @@ func (s *Select) listen(line []rune, key rune) {
 		}
 	case selecting:
 		switch {
-		case key == readline.CharEsc || key == 'q' || key == 'e' || key == 'j' || key == 'k' || key == readline.CharNext || key == readline.CharPrev:
+		case key == readline.CharEsc || key == 'j' || key == 'k' || key == readline.CharNext || key == readline.CharPrev:
 			s.mode = normal
 			s.selectTerm = ""
 		case key == readline.CharBackspace:
@@ -201,11 +199,7 @@ func (s *Select) listen(line []rune, key rune) {
 		case key == readline.CharEnter || key == ' ':
 			s.selectItem(s.cursor)
 		default:
-			cur, err := strconv.Atoi(s.selectTerm + string(line))
-			if err == nil {
-				s.selectTerm += string(line)
-				s.SetCursor(cur - 1)
-			}
+			s.keyedSelectItem(key)
 		}
 	case filtering:
 		switch {
@@ -232,6 +226,16 @@ func (s *Select) listen(line []rune, key rune) {
 }
 
 func (s *Select) keyedSelectItem(key rune) {
+	if len(s.items) > 9 {
+		cur, err := strconv.Atoi(s.selectTerm + string(key))
+		if err != nil {
+			return
+		}
+		s.mode = selecting
+		s.selectTerm += string(key)
+		s.SetCursor(cur - 1)
+		return
+	}
 	cur, err := strconv.Atoi(string(key))
 	if err != nil {
 		return
@@ -348,17 +352,13 @@ func (s *Select) render(sb *term.ScreenBuf) {
 		Items:      s.scopedItems(),
 		HelpText:   "(Choose with ↑ ↓ [Return], filter with 'f')",
 		FilterHelp: "Ctrl-D anytime or Backspace now to exit",
-		SelectHelp: "e, q, or up/down anytime to exit",
+		SelectHelp: "esc, or up/down anytime to exit",
 		SelectTerm: "Select: " + s.selectTerm,
 		SearchTerm: "Filter: " + s.searchTerm,
 		Selected:   s.selectedLabel(),
 		Mode:       s.mode,
 		Done:       s.done,
 		Cursor:     s.cursor - s.start,
-	}
-
-	if len(s.items) > 9 {
-		templateData.HelpText = "(Choose with ↑ ↓ [Return], filter with 'f', enter option with 'e')"
 	}
 
 	if s.multiple {
@@ -385,23 +385,4 @@ func min(x, y int) int {
 
 func clamp(a, minVal, maxVal int) int {
 	return max(min(a, maxVal), minVal)
-}
-
-func wordWrap(text string, lineWidth int) string {
-	words := strings.Fields(strings.TrimSpace(text))
-	if len(words) == 0 {
-		return text
-	}
-	wrapped := words[0]
-	spaceLeft := lineWidth - len(wrapped)
-	for _, word := range words[1:] {
-		if len(word)+1 > spaceLeft {
-			wrapped += "\n" + word
-			spaceLeft = lineWidth - len(word)
-		} else {
-			wrapped += " " + word
-			spaceLeft -= 1 + len(word)
-		}
-	}
-	return wrapped
 }
