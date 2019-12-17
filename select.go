@@ -57,8 +57,7 @@ const selectTemplate = `{{.Prefix}}
 {{ else -}}
 	{{ .Prefix }}no results
 {{- end -}}
-{{- end -}}
-`
+{{- end -}}`
 
 const (
 	normal selectMode = iota
@@ -172,13 +171,8 @@ func (s *Select) run() ([]int, []string, error) {
 	})
 	for !s.done && err == nil {
 		_, err = rl.Readline()
-		if err != nil {
-			switch {
-			case err == readline.ErrInterrupt, err.Error() == "Interrupt":
-				err = nil
-			case err == io.EOF:
-				err = nil
-			}
+		if err != nil && err == io.EOF {
+			err = nil
 		}
 	}
 	rl.Clean()
@@ -192,52 +186,54 @@ func (s *Select) run() ([]int, []string, error) {
 func (s *Select) listen(line []rune, key rune) {
 	switch s.mode {
 	case normal:
-		switch {
-		case key == readline.CharNext || key == 'j':
+		switch key {
+		case readline.CharNext, 'j':
 			s.next()
-		case key == readline.CharPrev || key == 'k':
+		case readline.CharPrev, 'k':
 			s.prev()
-		case key == 'f' || key == '/':
+		case 'f', '/':
 			s.mode = filtering
-		case unicode.IsNumber(key):
-			s.keyedSelectItem(key)
-		case key == readline.CharEnter || key == ' ':
+		case readline.CharEnter, ' ':
 			s.selectItem(s.cursor)
+		default:
+			s.keyedSelectItem(key)
 		}
 	case selecting:
-		switch {
-		case key == readline.CharEsc || key == 'j' || key == 'k' || key == readline.CharNext || key == readline.CharPrev:
+		switch key {
+		case readline.CharEsc, 'j', 'k', readline.CharNext, readline.CharPrev, readline.CharDelete:
 			s.mode = normal
 			s.selectTerm = ""
-		case key == readline.CharBackspace:
+		case readline.CharBackspace:
 			if len(s.selectTerm) > 0 {
 				s.selectTerm = s.selectTerm[:len(s.selectTerm)-1]
-				cur, _ := strconv.Atoi(s.selectTerm)
-				s.SetCursor(cur - 1)
+				cur, err := strconv.Atoi(s.selectTerm)
+				if err == nil {
+					s.SetCursor(cur - 1)
+				}
 			} else {
 				s.mode = normal
 			}
-		case key == readline.CharEnter || key == ' ':
+		case readline.CharEnter, ' ':
 			s.selectItem(s.cursor)
 		default:
 			s.keyedSelectItem(key)
 		}
 	case filtering:
-		switch {
-		case key == readline.CharNext:
+		switch key {
+		case readline.CharNext:
 			s.next()
-		case key == readline.CharPrev:
+		case readline.CharPrev:
 			s.prev()
-		case key == readline.CharEsc || key == readline.CharDelete:
+		case readline.CharEsc, readline.CharDelete:
 			s.cancelSearch()
-		case key == readline.CharBackspace:
+		case readline.CharBackspace:
 			if len(s.searchTerm) > 0 {
 				s.searchTerm = s.searchTerm[:len(s.searchTerm)-1]
 				s.search(s.searchTerm)
 			} else {
 				s.cancelSearch()
 			}
-		case key == readline.CharEnter || key == ' ':
+		case readline.CharEnter, ' ':
 			s.selectItem(s.cursor)
 		default:
 			s.searchTerm += string(line)
@@ -247,6 +243,9 @@ func (s *Select) listen(line []rune, key rune) {
 }
 
 func (s *Select) keyedSelectItem(key rune) {
+	if !unicode.IsNumber(key) {
+		return
+	}
 	if len(s.items) > 9 {
 		cur, err := strconv.Atoi(s.selectTerm + string(key))
 		if err != nil {
@@ -373,9 +372,9 @@ func (s *Select) render(sb *term.ScreenBuf) {
 		Prefix:      s.ctx.Prefix(),
 		Label:       s.label,
 		Items:       s.scopedItems(),
-		HelpText:    "(Choose with ↑ ↓ [Return], filter with 'f')",
+		HelpText:    Fmt("(Choose with ↑ ↓ "+term.ReturnLabel+", filter with 'f')", nil),
 		FilterHelp:  "Ctrl-D, Esc anytime or Backspace to exit",
-		SelectHelp:  "Esc or up/down anytime to exit",
+		SelectHelp:  "Ctrl-D, Esc or up/down anytime to exit",
 		SelectTerm:  "Select: " + s.selectTerm,
 		SearchTerm:  "Filter: " + s.searchTerm,
 		Selected:    s.selectedLabel(),
