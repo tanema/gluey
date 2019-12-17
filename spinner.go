@@ -7,8 +7,6 @@ import (
 	"github.com/tanema/gluey/term"
 )
 
-var glyphs = []rune(`|/-\`)
-
 const spinTemplate = `
 {{- range .Items -}}
 	{{$.Prefix}}
@@ -97,7 +95,7 @@ func (sg *SpinGroup) errors() map[string]error {
 
 func (sg *SpinGroup) next() {
 	sg.current++
-	if sg.current >= len(glyphs) {
+	if sg.current >= len(term.SpinGlyphs) {
 		sg.on = !sg.on
 		sg.current = 0
 	}
@@ -109,7 +107,7 @@ func (sg *SpinGroup) render(sb *term.ScreenBuf) {
 		Items         []*spinner
 		On            bool
 	}{
-		Glyph:  string(glyphs[sg.current]),
+		Glyph:  string(term.SpinGlyphs[sg.current]),
 		Prefix: sg.ctx.Prefix(),
 		Items:  sg.Items,
 		On:     sg.on,
