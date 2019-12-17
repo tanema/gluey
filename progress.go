@@ -10,8 +10,10 @@ import (
 	"github.com/tanema/gluey/term"
 )
 
-const progressTemplate = `{{range .Items}}{{.Prefix}}{{.Title}}{{.DoneBar|cyan}}{{.RestBar}} {{.Percent}}%
-{{end}}`
+const progressTemplate = `
+{{- range .Items -}}
+	{{.Prefix}}{{.Title}}{{.DoneBar|cyan}}{{.RestBar}} {{.Percent}}%
+{{ end }}`
 
 // ProgressGroup tracks a group of progress bars
 type ProgressGroup struct {

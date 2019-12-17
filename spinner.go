@@ -9,8 +9,20 @@ import (
 
 var glyphs = []rune(`|/-\`)
 
-const spinTemplate = `{{- range .Items -}}
-{{$.Prefix}}{{if .Done}}{{if .Err}}{{iconBad}}{{else}}{{iconGood}}{{end}}{{else if $.On}}{{$.Glyph|cyan}}{{else}}{{$.Glyph}}{{end}} {{.Title}}
+const spinTemplate = `
+{{- range .Items -}}
+	{{$.Prefix}}
+	{{- if .Done}}
+		{{- if .Err -}}
+			{{iconBad}}
+		{{- else -}}
+			{{iconGood}}
+		{{- end -}}
+	{{- else if $.On -}}
+		{{$.Glyph|cyan}}
+	{{- else -}}
+		{{$.Glyph}}
+	{{- end}} {{.Title}}
 {{end}}`
 
 type spinner struct {

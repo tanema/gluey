@@ -3,12 +3,12 @@ package term
 import (
 	"bytes"
 	"io"
-	"strings"
 	"sync"
 	"text/template"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/k0kubun/go-ansi"
-	"github.com/manifoldco/ansiwrap"
 )
 
 // Sprintf formats a string template and outputs console ready text
@@ -58,16 +58,12 @@ func (s *ScreenBuf) WriteTmpl(in string, data interface{}) {
 	defer s.mut.Unlock()
 	s.reset()
 	defer s.flush()
-	tmpl := renderStringTemplate(in, data)
-	parts := []string{}
 	termWidth := Width()
-	for _, line := range strings.Split(string(tmpl), "\n") {
-		if len(line) > 0 {
-			wrapped := ansiwrap.Wrap(line, termWidth)
-			parts = append(parts, strings.Split(wrapped, "\n")...)
-		}
+	tmpl := ansiwrap(renderStringTemplate(in, data), termWidth)
+	if tmpl[len(tmpl)-1] != '\n' {
+		tmpl = append(tmpl, '\n')
 	}
-	s.buf.Write([]byte(strings.Join(parts, "\n") + "\n"))
+	s.buf.Write(tmpl)
 }
 
 // Done will show the cursor again and give back control
@@ -77,4 +73,68 @@ func (s *ScreenBuf) Done() {
 
 func (s *ScreenBuf) flush() {
 	io.Copy(s.w, bytes.NewBuffer(s.buf.Bytes()))
+}
+
+// ansiwrap will wrap a byte array (add linebreak) with awareness of
+// ansi character widths
+func ansiwrap(str []byte, width int) []byte {
+	output := []byte{}
+	currentChunk := []byte{}
+	currentLine := []byte{}
+
+	for _, s := range str {
+		if s == '\n' {
+			currentChunk = append(currentChunk, s)
+			currentLine = append(currentLine, currentChunk...)
+			output = append(output, currentLine...)
+			currentLine = []byte{}
+			currentChunk = []byte{}
+			continue
+		} else if s == ' ' {
+			linewidth := runeCount(append(currentLine, currentChunk...))
+			if linewidth > width {
+				output = append(output, append(currentLine, '\n')...)
+				currentLine = currentChunk
+				currentChunk = []byte{}
+				continue
+			}
+			currentLine = append(currentLine, currentChunk...)
+			currentChunk = []byte{}
+		}
+		currentChunk = append(currentChunk, s)
+	}
+	currentLine = append(currentLine, currentChunk...)
+	output = append(output, currentLine...)
+	return output
+}
+
+// copied from ansiwrap.
+// https://github.com/manifoldco/ansiwrap/blob/master/ansiwrap.go#L193
+// ansiwrap worked well but I needed a version the preserved
+// spacing so I just copied this method over for acurate space counting.
+// There is a major problem with this though. It is not able to count
+// tab spaces
+func runeCount(b []byte) int {
+	l := 0
+	inSequence := false
+	for len(b) > 0 {
+		if b[0] == '\033' {
+			inSequence = true
+			b = b[1:]
+			continue
+		}
+		r, rl := utf8.DecodeRune(b)
+		b = b[rl:]
+		if inSequence {
+			if r == 'm' {
+				inSequence = false
+			}
+			continue
+		}
+		if !unicode.IsPrint(r) {
+			continue
+		}
+		l++
+	}
+	return l
 }
