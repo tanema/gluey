@@ -14,32 +14,51 @@ import (
 
 type selectMode int
 
-const selectTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected|italic}}){{- else -}}
-{{iconQ}} {{.Label}} {{.HelpText | yellow}}
-{{- if eq .Mode 1}}
-{{.Prefix}}{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
-{{- if eq .Mode 2}}
-{{.Prefix}}{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
-{{range $index, $item := .Items -}}
-{{$.Prefix}}{{if eq $.Cursor $index}}{{iconSel|blue}} {{$item.Index|blue}} {{$item.Label|blue}}{{else}}{{$item.Index}} {{$item.Label}}{{end}}
-{{else -}}
-{{.Prefix}}no results
+const selectTemplate = `{{.Prefix}}
+{{- if .Done -}}
+	{{ iconQ }} {{ .Label }} (You chose: {{ .Selected | italic }})
+{{- else -}}
+{{ iconQ }} {{ .Label }} {{ .HelpText | yellow }}
+{{- if eq .Mode 1 }}
+{{ .Prefix }}{{ .SelectTerm | green }} {{ .SelectHelp | blue }}
+{{- end }}
+{{- if eq .Mode 2 }}
+{{ .Prefix }}{{ .SearchTerm | green }} {{ .FilterHelp | blue }}
+{{- end}}
+{{- if .Multiple }}
+{{ .Prefix }}  0 {{ if gt .SelectCount 1 -}}
+	{{ "Done" | bold }}
+{{- else -}}
+	Done
+{{- end }}
+{{- end }}
+{{ range $index, $item := .Items -}}
+	{{ $.Prefix }}
+	{{- if eq $.Cursor $index -}}
+		{{ iconSel | blue }} {{ $item.Index | blue }} {{ if $.Multiple }}
+			{{- if .Chosen -}}
+				{{ iconChk | blue }}
+			{{- else -}}
+				{{ iconBox | blue }}
+			{{- end -}}
+		{{- end }} {{$item.Label | blue }}
+	{{- else }}  {{ $item.Index }} {{ if $.Multiple }}
+			{{- if .Chosen -}}
+				{{ iconChk }}
+			{{- else -}}
+				{{ iconBox }}
+			{{- end -}}
+		{{- end }} {{ if .Chosen -}}
+			{{ $item.Label | bold }}
+		{{- else -}}
+			{{ $item.Label }}
+		{{- end -}}
+	{{- end }}
+{{ else -}}
+	{{ .Prefix }}no results
 {{- end -}}
-{{- end -}}`
-
-const selectMultiTemplate = `{{.Prefix}}{{- if .Done}}{{iconQ}} {{.Label}} (You chose: {{.Selected|italic}}){{- else -}}
-{{iconQ}} {{.Label}} {{.HelpText | yellow}}
-{{- if eq .Mode 1}}
-{{.Prefix}}{{.SelectTerm | green}} {{if eq .SelectTerm "Select: "}}{{.SelectHelp|blue}}{{end}}{{end}}
-{{- if eq .Mode 2}}
-{{.Prefix}}{{.SearchTerm | green}} {{if eq .SearchTerm "Filter: "}}{{.FilterHelp|blue}}{{end}}{{end}}
-{{.Prefix}}  0 Done
-{{range $index, $item := .Items -}}
-{{$.Prefix}}{{if eq $.Cursor $index}}{{iconSel|blue}} {{$item.Index|blue}} {{if $item.Chosen}}{{iconChk|blue}}{{else}}{{iconBox|blue}}{{end}} {{$item.Label|blue}}{{else}}  {{$item.Index}} {{if $item.Chosen}}{{iconChk}}{{else}}{{iconBox}}{{end}} {{if $item.Chosen}}{{$item.Label|cyan}}{{else}}{{$item.Label}}{{end}}{{end}}
-{{else -}}
-{{.Prefix}}no results
 {{- end -}}
-{{- end -}}`
+`
 
 const (
 	normal selectMode = iota
@@ -48,18 +67,20 @@ const (
 )
 
 type selectTemplateData struct {
-	Prefix     string
-	Label      string
-	Items      []*selectItem
-	Selected   string
-	SearchTerm string
-	SelectTerm string
-	HelpText   string
-	FilterHelp string
-	SelectHelp string
-	Mode       selectMode
-	Done       bool
-	Cursor     int
+	Prefix      string
+	Label       string
+	Items       []*selectItem
+	Selected    string
+	SelectCount int
+	SearchTerm  string
+	SelectTerm  string
+	HelpText    string
+	FilterHelp  string
+	SelectHelp  string
+	Mode        selectMode
+	Done        bool
+	Multiple    bool
+	Cursor      int
 }
 
 // Select represents a list of items used to enable selections, they can be used as search engines, menus
@@ -203,9 +224,9 @@ func (s *Select) listen(line []rune, key rune) {
 		}
 	case filtering:
 		switch {
-		case key == readline.CharNext || key == 'j':
+		case key == readline.CharNext:
 			s.next()
-		case key == readline.CharPrev || key == 'k':
+		case key == readline.CharPrev:
 			s.prev()
 		case key == readline.CharEsc || key == readline.CharDelete:
 			s.cancelSearch()
@@ -244,8 +265,7 @@ func (s *Select) keyedSelectItem(key rune) {
 }
 
 func (s *Select) selectItem(cursor int) {
-	if s.multiple && cursor == -1 {
-		s.done = true
+	if len(s.scope) == 0 && cursor < 0 && cursor >= len(s.scope) {
 		return
 	}
 	s.scope[cursor].Chosen = !s.scope[cursor].Chosen
@@ -282,6 +302,9 @@ func (s *Select) SetCursor(i int) {
 		s.start = s.cursor
 	} else if s.start+s.size <= s.cursor {
 		s.start = s.cursor - s.size + 1
+	}
+	if s.multiple && i == -1 && len(s.scope) > 0 {
+		s.done = true
 	}
 }
 
@@ -347,22 +370,23 @@ func (s *Select) selectedLabel() string {
 func (s *Select) render(sb *term.ScreenBuf) {
 	template := selectTemplate
 	templateData := selectTemplateData{
-		Prefix:     s.ctx.Prefix(),
-		Label:      s.label,
-		Items:      s.scopedItems(),
-		HelpText:   "(Choose with ↑ ↓ [Return], filter with 'f')",
-		FilterHelp: "Ctrl-D anytime or Backspace now to exit",
-		SelectHelp: "esc, or up/down anytime to exit",
-		SelectTerm: "Select: " + s.selectTerm,
-		SearchTerm: "Filter: " + s.searchTerm,
-		Selected:   s.selectedLabel(),
-		Mode:       s.mode,
-		Done:       s.done,
-		Cursor:     s.cursor - s.start,
+		Prefix:      s.ctx.Prefix(),
+		Label:       s.label,
+		Items:       s.scopedItems(),
+		HelpText:    "(Choose with ↑ ↓ [Return], filter with 'f')",
+		FilterHelp:  "Ctrl-D, Esc anytime or Backspace to exit",
+		SelectHelp:  "Esc or up/down anytime to exit",
+		SelectTerm:  "Select: " + s.selectTerm,
+		SearchTerm:  "Filter: " + s.searchTerm,
+		Selected:    s.selectedLabel(),
+		SelectCount: len(s.selectedItems()),
+		Mode:        s.mode,
+		Done:        s.done,
+		Multiple:    s.multiple,
+		Cursor:      s.cursor - s.start,
 	}
 
 	if s.multiple {
-		template = selectMultiTemplate
 		templateData.HelpText = strings.Replace(templateData.HelpText, "Choose", "Toggle", 1)
 	}
 

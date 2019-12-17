@@ -9,13 +9,10 @@ import (
 
 func main() {
 	ctx := gluey.New()
-	ctx.Select("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other", "Vim", "Emacs", "Sublime", "VSCode", "Atom", "other", "Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
-
-	return
 	ctx.AskDefault("Username", "foo")
 	ctx.Password("Password")
 	ctx.Confirm("Skip Run?", true)
-	ctx.Select("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
+	ctx.SelectMultiple("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other", "Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
 	ctx.InMeasuredFrame("Build", func(c *gluey.Ctx, f *gluey.Frame) error {
 		c.InFrame("Cloning", func(c *gluey.Ctx, f *gluey.Frame) error {
 			return c.Progress(100, func(c *gluey.Ctx, bar *gluey.Bar) error {
