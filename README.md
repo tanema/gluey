@@ -19,6 +19,5 @@ ids, editors, err := ctx.SelectMultiple("Which Text Editors do you use", []strin
 ### Todo
 
 - select: weird characters during select in windows cmd.exe
-- progress: mutex on tick/set for oncurrent actions
 - fallback icons (a way to figure out when we need to fallback)
 - spinner/progress groups log messages/errors while running
