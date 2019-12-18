@@ -8,7 +8,7 @@ Gluey is an opinionated graphic input library for CLI applications. It aims to h
 
 A simple example of how easy it is to use
 
-```
+```go
 ctx := gluey.New()
 username, err := ctx.Ask("Username") // required text input
 passwd, err := ctx.Password("Password") // Hidden output
