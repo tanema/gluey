@@ -93,15 +93,20 @@ type Bar struct {
 	total   float64
 	err     error
 	done    bool
+	mut     sync.Mutex
 }
 
 // Tick allows to increment the value of the bar
 func (bar *Bar) Tick(inc float64) {
+	bar.mut.Lock()
+	defer bar.mut.Unlock()
 	bar.set(bar.current + inc)
 }
 
 // Set allows to set the current value of the bar
 func (bar *Bar) Set(val float64) {
+	bar.mut.Lock()
+	defer bar.mut.Unlock()
 	bar.set(val)
 }
 
