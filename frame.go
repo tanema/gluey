@@ -22,9 +22,10 @@ const (
 
 // Frame is a box around output that can be nested
 type Frame struct {
-	ctx       *Ctx
-	nestedCtx *Ctx
-	color     string
+	ctx        *Ctx
+	nestedCtx  *Ctx
+	color      string
+	closeTitle string
 }
 
 func newFrame(ctx *Ctx) *Frame {
@@ -35,22 +36,27 @@ func newFrame(ctx *Ctx) *Frame {
 }
 
 func (frame *Frame) run(title string, timed bool, fn FrameFunc) error {
-	frame.printBar(barOpen, title)
+	frame.printBar(barOpen, title, "")
 	start := time.Now()
 	err := fn(frame.nestedCtx, frame)
 	elapsed := time.Since(start)
-	closedLabel := ""
+	elapsedLabel := ""
 	if timed {
-		closedLabel = fmt.Sprintf("%s", elapsed.Round(time.Second))
+		elapsedLabel = fmt.Sprintf("(%s)", elapsed.Round(time.Second))
 	}
-	frame.printBar(barClose, closedLabel)
+	frame.printBar(barClose, frame.closeTitle, elapsedLabel)
 	return err
 }
 
 // Divider adds a ┣━━━━ divider to the output
 func (frame *Frame) Divider(label, color string) {
 	frame.SetColor(color)
-	frame.printBar(barDivide, label)
+	frame.printBar(barDivide, label, "")
+}
+
+// SetCloseTitle sets a label that will show on the closing divider
+func (frame *Frame) SetCloseTitle(label string) {
+	frame.closeTitle = label
 }
 
 // SetColor will set the frames color
@@ -63,17 +69,19 @@ func (frame *Frame) SetColor(color string) {
 	frame.nestedCtx.Logger = log.New(frame.ctx.Writer(), prefix, 0)
 }
 
-func (frame *Frame) printBar(bt barType, label string) {
-	frame.ctx.Println(frame.bar(bt, label))
+func (frame *Frame) printBar(bt barType, left, right string) {
+	frame.ctx.Println(frame.bar(bt, left, right))
 }
 
-func (frame *Frame) bar(bt barType, label string) string {
+func (frame *Frame) bar(bt barType, left, right string) string {
 	prefix := string(bt)
-	if len(label) > 0 {
-		label = strings.TrimSpace(label)
-		label = " " + label + " "
+	if len(left) > 0 {
+		left = " " + strings.TrimSpace(left) + " "
 	}
-	padding := term.Width() - len(label) - len(prefix) - (frame.ctx.Indent - 2)
+	if len(right) > 0 {
+		right = " " + strings.TrimSpace(right) + " "
+	}
+	padding := term.Width() - len(prefix) - len(left) - len(right) - (frame.ctx.Indent - 2)
 	bar := strings.Repeat("━", padding)
-	return Fmt("{{ . | "+frame.color+" }}", prefix+label+bar)
+	return Fmt("{{ . | "+frame.color+" }}", prefix+left+bar+right)
 }

@@ -55,6 +55,8 @@ func main() {
 		})
 		pgroup.Wait()
 
+		f.SetCloseTitle("Completed with failures")
+
 		return c.InFrame("starting up env", func(c *gluey.Ctx, f *gluey.Frame) error {
 			sgroup := c.NewSpinGroup()
 			sgroup.Go("redis", func() error {
