@@ -23,7 +23,7 @@ const spinTemplate = `
 	{{- end}} {{.Title}}
 {{end}}`
 
-type spinner struct {
+type Spinner struct {
 	ctx   *Ctx
 	Title string
 	Err   error
@@ -33,14 +33,14 @@ type spinner struct {
 // SpinGroup keeps a group of spinners and their statuses
 type SpinGroup struct {
 	ctx     *Ctx
-	Items   []*spinner
+	Items   []*Spinner
 	current int
 	on      bool
 	wg      sync.WaitGroup
 }
 
 // Spinner creates a single spinner and waits for it to finish
-func (ctx *Ctx) Spinner(title string, fn func() error) error {
+func (ctx *Ctx) Spinner(title string, fn func(*Spinner) error) error {
 	group := ctx.NewSpinGroup()
 	group.Go(title, fn)
 	return group.Wait()[title]
@@ -52,13 +52,13 @@ func (ctx *Ctx) NewSpinGroup() *SpinGroup {
 }
 
 // Go adds another process to the spin group
-func (sg *SpinGroup) Go(title string, fn func() error) {
+func (sg *SpinGroup) Go(title string, fn func(*Spinner) error) {
 	sg.wg.Add(1)
-	s := &spinner{ctx: sg.ctx, Title: title}
+	s := &Spinner{ctx: sg.ctx, Title: title}
 	sg.Items = append(sg.Items, s)
 	go func() {
 		defer sg.wg.Done()
-		s.Err = fn()
+		s.Err = fn(s)
 		s.Done = true
 	}()
 }
@@ -104,7 +104,7 @@ func (sg *SpinGroup) next() {
 func (sg *SpinGroup) render(sb *term.ScreenBuf) {
 	data := struct {
 		Glyph, Prefix string
-		Items         []*spinner
+		Items         []*Spinner
 		On            bool
 	}{
 		Glyph:  string(term.SpinGlyphs[sg.current]),
