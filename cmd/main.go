@@ -11,9 +11,10 @@ func main() {
 	ctx := gluey.New()
 	ctx.AskDefault("Username", "foo")
 	ctx.Password("Password")
-	ctx.Confirm("Skip Run?", true)
+	ctx.Confirm("Skip Run?")
 	ctx.SelectMultiple("What's your text editor", []string{"Vim", "Emacs", "Sublime", "VSCode", "Atom", "other", "Vim", "Emacs", "Sublime", "VSCode", "Atom", "other"})
-	ctx.InMeasuredFrame("Build", func(c *gluey.Ctx, f *gluey.Frame) error {
+	ctx.InFrame("Build", func(c *gluey.Ctx, f *gluey.Frame) error {
+		f.SetShowElapsed(true)
 		c.InFrame("Cloning", func(c *gluey.Ctx, f *gluey.Frame) error {
 			return c.Progress(100, func(c *gluey.Ctx, bar *gluey.Bar) error {
 				for i := 1; i <= 100; i++ {
@@ -59,20 +60,20 @@ func main() {
 
 		return c.InFrame("starting up env", func(c *gluey.Ctx, f *gluey.Frame) error {
 			sgroup := c.NewSpinGroup()
-			sgroup.Go("redis", func() error {
+			sgroup.Go("redis", func(s *gluey.Spinner) error {
 				time.Sleep(time.Second)
 				return nil
 			})
-			sgroup.Go("mysql", func() error {
+			sgroup.Go("mysql", func(s *gluey.Spinner) error {
 				time.Sleep(500 * time.Millisecond)
 				return nil
 			})
-			sgroup.Go("elasticsearch", func() error {
+			sgroup.Go("elasticsearch", func(s *gluey.Spinner) error {
 				time.Sleep(2 * time.Second)
 				return errors.New("elasticseach failed to start")
 			})
-
-			return c.Debreif(sgroup.Wait())
+			sgroup.Wait()
+			return sgroup.Error()
 		})
 	})
 }

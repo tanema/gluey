@@ -23,6 +23,7 @@ const spinTemplate = `
 	{{- end}} {{.Title}}
 {{end}}`
 
+// Spinner is a single spinning status indicator
 type Spinner struct {
 	ctx   *Ctx
 	Title string
@@ -43,7 +44,8 @@ type SpinGroup struct {
 func (ctx *Ctx) Spinner(title string, fn func(*Spinner) error) error {
 	group := ctx.NewSpinGroup()
 	group.Go(title, fn)
-	return group.Wait()[title]
+	group.Wait()
+	return group.Error()
 }
 
 // NewSpinGroup creates a new group of spinners to track multiple statuses
@@ -64,9 +66,8 @@ func (sg *SpinGroup) Go(title string, fn func(*Spinner) error) {
 }
 
 // Wait will pause until all spinners are complete
-func (sg *SpinGroup) Wait() map[string]error {
+func (sg *SpinGroup) Wait() {
 	done := false
-
 	sb := term.NewScreenBuf(sg.ctx.Writer())
 	defer sb.Done()
 
@@ -80,17 +81,19 @@ func (sg *SpinGroup) Wait() map[string]error {
 	sg.wg.Wait()
 	done = true
 	sg.render(sb)
-	return sg.errors()
 }
 
-func (sg *SpinGroup) errors() map[string]error {
-	errs := map[string]error{}
+func (sg *SpinGroup) Error() error {
+	err := &GroupError{Errors: map[string]error{}}
 	for _, spinner := range sg.Items {
 		if spinner.Err != nil {
-			errs[spinner.Title] = spinner.Err
+			err.Errors[spinner.Title] = spinner.Err
 		}
 	}
-	return errs
+	if len(err.Errors) == 0 {
+		return nil
+	}
+	return err
 }
 
 func (sg *SpinGroup) next() {

@@ -1,6 +1,7 @@
 package gluey
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -9,7 +10,10 @@ import (
 	"github.com/chzyer/readline"
 	"github.com/k0kubun/go-ansi"
 	"github.com/tanema/gluey/term"
+	"golang.org/x/exp/slices"
 )
+
+var validConfirmAnswers = []string{"yes", "no", "y", "n"}
 
 type fnCompleter struct{}
 
@@ -61,6 +65,17 @@ func (ctx *Ctx) AskDefault(label, what string) (string, error) {
 	return ctx.ask(what)
 }
 
+// Confirm will as a yes or no question and wait for an answer that is one of those.
+func (ctx *Ctx) Confirm(question string) (bool, error) {
+	for {
+		if response, err := ctx.Ask(fmt.Sprintf("%s [y/n]: ", question)); err != nil {
+			return false, err
+		} else if res := strings.ToLower(strings.TrimSpace(response)); slices.Contains(validConfirmAnswers, res) {
+			return res == "y" || res == "yes", nil
+		}
+	}
+}
+
 // AskFile will prompt the user for a filepath with autocomplete
 func (ctx *Ctx) AskFile(label string) (string, error) {
 	ctx.Println(Fmt(`{{iconQ}} {{.}}`, label))
@@ -99,7 +114,8 @@ func (ctx *Ctx) ask(what string) (string, error) {
 	return result, nil
 }
 
-// Select will propt the user with a list and will allow them to select a single option
+// Select will propt the user with a list and will allow them to select a single
+// option
 func (ctx *Ctx) Select(label string, items []string) (int, string, error) {
 	indexes, items, err := newSelect(ctx, label, items).run()
 	if len(indexes) == 0 && len(items) == 0 {
@@ -108,14 +124,15 @@ func (ctx *Ctx) Select(label string, items []string) (int, string, error) {
 	return indexes[0], items[0], err
 }
 
-// SelectMultiple will propt the user with a list and will allow them to select multiple options
+// SelectMultiple will propt the user with a list and will allow them to select
+// multiple options
 func (ctx *Ctx) SelectMultiple(label string, items []string) ([]int, []string, error) {
 	return newMultipleSelect(ctx, label, items).run()
 }
 
-// Confirm will prompt the user with a yes/no option. The dflt setting will decide
-// if the first option is yes or no so that the user can just press enter
-func (ctx *Ctx) Confirm(label string, dflt bool) (bool, error) {
+// ConfirmSelect will prompt the user with a yes/no option. The dflt setting will
+// decide if the first option is yes or no so that the user can just press enter
+func (ctx *Ctx) ConfirmSelect(label string, dflt bool) (bool, error) {
 	var err error
 	var result string
 	if dflt {
@@ -138,13 +155,7 @@ func (ctx *Ctx) Password(label string) (string, error) {
 
 // InFrame will format output to be inside a frame
 func (ctx *Ctx) InFrame(title string, fn FrameFunc) error {
-	return newFrame(ctx).run(title, false, fn)
-}
-
-// InMeasuredFrame will format output to be inside a frame with
-// a measure of time at the end
-func (ctx *Ctx) InMeasuredFrame(title string, fn FrameFunc) error {
-	return newFrame(ctx).run(title, true, fn)
+	return newFrame(ctx).run(title, fn)
 }
 
 // Debreif is a convienience method to format multi error return from
@@ -161,7 +172,7 @@ func (ctx *Ctx) Debreif(errors map[string]error) error {
 		}
 		frame := newFrame(ctx)
 		frame.SetColor("red")
-		frame.run("Task Failed: "+title, false, func(c *Ctx, f *Frame) error {
+		frame.run("Task Failed: "+title, func(c *Ctx, f *Frame) error {
 			c.Println(err)
 			return nil
 		})

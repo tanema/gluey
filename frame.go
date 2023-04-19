@@ -24,6 +24,7 @@ const (
 type Frame struct {
 	ctx        *Ctx
 	nestedCtx  *Ctx
+	timed      bool
 	color      string
 	closeTitle string
 }
@@ -35,13 +36,13 @@ func newFrame(ctx *Ctx) *Frame {
 	return frame
 }
 
-func (frame *Frame) run(title string, timed bool, fn FrameFunc) error {
+func (frame *Frame) run(title string, fn FrameFunc) error {
 	frame.printBar(barOpen, title, "")
 	start := time.Now()
 	err := fn(frame.nestedCtx, frame)
 	elapsed := time.Since(start)
 	elapsedLabel := ""
-	if timed {
+	if frame.timed {
 		elapsedLabel = fmt.Sprintf("(%s)", elapsed.Round(time.Second))
 	}
 	frame.printBar(barClose, frame.closeTitle, elapsedLabel)
@@ -59,7 +60,13 @@ func (frame *Frame) SetCloseTitle(label string) {
 	frame.closeTitle = label
 }
 
-// SetColor will set the frames color
+// SetShowElapsed enabled/disables showing the elapsed time when the frame is
+// closed
+func (frame *Frame) SetShowElapsed(show bool) {
+	frame.timed = show
+}
+
+// SetColor will set the frames color from this point onward.
 func (frame *Frame) SetColor(color string) {
 	if color == "" {
 		return
