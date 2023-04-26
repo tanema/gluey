@@ -27,7 +27,11 @@ func (ctx *Ctx) Progress(total float64, fn func(*Ctx, *Bar) error) error {
 	group := &ProgressGroup{ctx: ctx}
 	group.Go("", total, fn)
 	group.Wait()
-	return group.Error()
+	if err := group.Error(); err != nil {
+		gErr := err.(*GroupError)
+		return gErr.Errors[""]
+	}
+	return nil
 }
 
 // NewProgressGroup will create a new progress bar group the will track multiple bars

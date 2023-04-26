@@ -45,7 +45,11 @@ func (ctx *Ctx) Spinner(title string, fn func(*Spinner) error) error {
 	group := ctx.NewSpinGroup()
 	group.Go(title, fn)
 	group.Wait()
-	return group.Error()
+	if err := group.Error(); err != nil {
+		gErr := err.(*GroupError)
+		return gErr.Errors[title]
+	}
+	return nil
 }
 
 // NewSpinGroup creates a new group of spinners to track multiple statuses
