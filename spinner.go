@@ -10,7 +10,7 @@ import (
 const spinTemplate = `
 {{- range .Items -}}
 	{{$.Prefix}}
-	{{- if .Done}}
+	{{- if .Complete}}
 		{{- if .Err -}}
 			{{iconBad}}
 		{{- else -}}
@@ -23,95 +23,94 @@ const spinTemplate = `
 	{{- end}} {{.Title}}
 {{end}}`
 
-// Spinner is a single spinning status indicator
-type Spinner struct {
-	ctx   *Ctx
-	Title string
-	Err   error
-	Done  bool
-}
-
-// SpinGroup keeps a group of spinners and their statuses
-type SpinGroup struct {
-	ctx     *Ctx
-	Items   []*Spinner
-	current int
-	on      bool
-	wg      sync.WaitGroup
-}
+type (
+	// Spin is a single spinning status indicator
+	Spin struct {
+		ctx      *Ctx
+		group    *SpinGroup
+		Title    string
+		Err      error
+		Complete bool
+	}
+	// SpinGroup keeps a group of spinners and their statuses
+	SpinGroup struct {
+		ctx     *Ctx
+		screen  *term.ScreenBuf
+		Items   []*Spin
+		current int
+		on      bool
+		wg      sync.WaitGroup
+	}
+)
 
 // Spinner creates a single spinner and waits for it to finish
-func (ctx *Ctx) Spinner(title string, fn func(*Spinner) error) error {
-	group := ctx.NewSpinGroup()
-	group.Go(title, fn)
-	group.Wait()
-	if err := group.Error(); err != nil {
-		gErr := err.(*GroupError)
-		return gErr.Errors[title]
+func (ctx *Ctx) Spinner(title string) *Spin {
+	return ctx.NewSpinGroup().Add(title)
+}
+
+func Spinner(title string) *Spin {
+	return New().Spinner(title)
+}
+
+func (spinner *Spin) Done() {
+	if spinner.Complete {
+		return
 	}
-	return nil
+	spinner.Complete = true
+	spinner.group.render()
+}
+
+func (spinner *Spin) Fail(err error) {
+	spinner.Err = err
+	spinner.Done()
 }
 
 // NewSpinGroup creates a new group of spinners to track multiple statuses
 func (ctx *Ctx) NewSpinGroup() *SpinGroup {
-	return &SpinGroup{ctx: ctx}
+	group := &SpinGroup{ctx: ctx, screen: term.NewScreenBuf(ctx.Writer())}
+	go group.run()
+	return group
 }
 
-// Go adds another process to the spin group
-func (sg *SpinGroup) Go(title string, fn func(*Spinner) error) {
-	sg.wg.Add(1)
-	s := &Spinner{ctx: sg.ctx, Title: title}
+func (sg *SpinGroup) Add(title string) *Spin {
+	s := &Spin{
+		ctx:   sg.ctx,
+		group: sg,
+		Title: title,
+	}
 	sg.Items = append(sg.Items, s)
-	go func() {
-		defer sg.wg.Done()
-		s.Err = fn(s)
-		s.Done = true
-	}()
+	return s
 }
 
-// Wait will pause until all spinners are complete
-func (sg *SpinGroup) Wait() {
-	done := false
-	sb := term.NewScreenBuf(sg.ctx.Writer())
-	defer sb.Done()
-
-	go func() {
-		for !done {
-			sg.next()
-			sg.render(sb)
-			time.Sleep(80 * time.Millisecond)
-		}
-	}()
-	sg.wg.Wait()
-	done = true
-	sg.render(sb)
-}
-
-func (sg *SpinGroup) Error() error {
-	err := &GroupError{Errors: map[string]error{}}
-	for _, spinner := range sg.Items {
-		if spinner.Err != nil {
-			err.Errors[spinner.Title] = spinner.Err
+func (sg *SpinGroup) AllDone() bool {
+	if len(sg.Items) == 0 {
+		return false
+	}
+	for _, s := range sg.Items {
+		if !s.Complete {
+			return false
 		}
 	}
-	if len(err.Errors) == 0 {
-		return nil
-	}
-	return err
+	return true
 }
 
-func (sg *SpinGroup) next() {
+func (sg *SpinGroup) run() {
+	for !sg.AllDone() {
+		sg.render()
+		time.Sleep(80 * time.Millisecond)
+	}
+	sg.render()
+}
+
+func (sg *SpinGroup) render() {
 	sg.current++
 	if sg.current >= len(term.SpinGlyphs) {
 		sg.on = !sg.on
 		sg.current = 0
 	}
-}
-
-func (sg *SpinGroup) render(sb *term.ScreenBuf) {
 	data := struct {
 		Glyph, Prefix string
-		Items         []*Spinner
+		Items         []*Spin
 		On            bool
 	}{
 		Glyph:  string(term.SpinGlyphs[sg.current]),
@@ -119,5 +118,5 @@ func (sg *SpinGroup) render(sb *term.ScreenBuf) {
 		Items:  sg.Items,
 		On:     sg.on,
 	}
-	sb.WriteTmpl(spinTemplate, data)
+	sg.screen.WriteTmpl(spinTemplate, data)
 }

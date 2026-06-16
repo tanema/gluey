@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/tanema/gluey"
@@ -16,64 +17,66 @@ func main() {
 	ctx.InFrame("Build", func(c *gluey.Ctx, f *gluey.Frame) error {
 		f.SetShowElapsed(true)
 		c.InFrame("Cloning", func(c *gluey.Ctx, f *gluey.Frame) error {
-			return c.Progress(100, func(c *gluey.Ctx, bar *gluey.Bar) error {
-				for i := 1; i <= 100; i++ {
-					bar.Tick(1)
-					time.Sleep(1 * time.Millisecond)
-				}
-				return nil
-			})
+			bar := c.Progress("", 100)
+			for i := 1; i <= 100; i++ {
+				bar.Tick(1)
+				time.Sleep(1 * time.Millisecond)
+			}
+			return nil
 		})
 
 		c.Println("Requesting something")
 		f.Divider("Request Failed", "yellow")
 		c.Println("https failed or something")
 
+		wg := sync.WaitGroup{}
+		wg.Add(3)
 		pgroup := c.NewProgressGroup()
-		pgroup.Go("Git Clone", 100, func(c *gluey.Ctx, bar *gluey.Bar) error {
+		bar1 := pgroup.Add("Git Clone", 100)
+		go func() {
+			defer wg.Done()
 			for i := 1; i <= 100; i++ {
-				bar.Tick(1)
+				bar1.Tick(1)
 				time.Sleep(1 * time.Millisecond)
 			}
-			return nil
-		})
-		pgroup.Go("Docker Image", 200, func(c *gluey.Ctx, bar *gluey.Bar) error {
+		}()
+
+		bar2 := pgroup.Add("Docker Image", 200)
+		go func() {
+			defer wg.Done()
 			for i := 1; i <= 100; i++ {
-				bar.Tick(2)
+				bar2.Tick(2)
 				time.Sleep(1 * time.Millisecond)
 				if i == 50 {
-					return errors.New("connection error")
+					bar2.Fail(errors.New("connection error"))
 				}
 			}
-			return nil
-		})
-		pgroup.Go("Railgun Image", 50, func(c *gluey.Ctx, bar *gluey.Bar) error {
+		}()
+
+		bar3 := pgroup.Add("Railgun Image", 50)
+		go func() {
+			defer wg.Done()
 			for i := 1; i <= 100; i++ {
-				bar.Tick(1)
+				bar3.Tick(1)
 				time.Sleep(10 * time.Millisecond)
 			}
-			return nil
-		})
-		pgroup.Wait()
+		}()
+		wg.Wait()
 
 		f.SetCloseTitle("Completed with failures")
 
 		return c.InFrame("starting up env", func(c *gluey.Ctx, f *gluey.Frame) error {
 			sgroup := c.NewSpinGroup()
-			sgroup.Go("redis", func(s *gluey.Spinner) error {
-				time.Sleep(time.Second)
-				return nil
-			})
-			sgroup.Go("mysql", func(s *gluey.Spinner) error {
-				time.Sleep(500 * time.Millisecond)
-				return nil
-			})
-			sgroup.Go("elasticsearch", func(s *gluey.Spinner) error {
-				time.Sleep(2 * time.Second)
-				return errors.New("elasticseach failed to start")
-			})
-			sgroup.Wait()
-			return sgroup.Error()
+			redisSpinner := sgroup.Add("redis")
+			mysqlSpinner := sgroup.Add("mysql")
+			esSpinner := sgroup.Add("elasticsearch")
+			time.Sleep(500 * time.Millisecond)
+			mysqlSpinner.Done()
+			time.Sleep(time.Second)
+			redisSpinner.Done()
+			time.Sleep(time.Second)
+			esSpinner.Fail(errors.New("elasticseach failed to start"))
+			return nil
 		})
 	})
 }

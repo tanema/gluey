@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/tanema/gluey/term"
 )
@@ -15,92 +14,71 @@ const progressTemplate = `
 	{{.Prefix}}{{.Title}}{{.DoneBar|cyan}}{{.RestBar}} {{.Percent}}%
 {{ end }}`
 
-// ProgressGroup tracks a group of progress bars
-type ProgressGroup struct {
-	ctx   *Ctx
-	Items []*Bar
-	wg    sync.WaitGroup
+type (
+	// Bar is a single progress bar
+	Bar struct {
+		ctx     *Ctx
+		group   *ProgressGroup
+		Title   string
+		DoneBar string
+		RestBar string
+		Prefix  string
+		Percent string
+		current float64
+		total   float64
+		err     error
+		done    bool
+		mut     sync.Mutex
+	}
+	// ProgressGroup tracks a group of progress bars
+	ProgressGroup struct {
+		ctx    *Ctx
+		screen *term.ScreenBuf
+		Items  []*Bar
+		wg     sync.WaitGroup
+	}
+)
+
+func Progress(title string, total float64) *Bar {
+	return New().Progress(title, total)
 }
 
 // Progress creates a singel progress bar
-func (ctx *Ctx) Progress(total float64, fn func(*Ctx, *Bar) error) error {
-	group := &ProgressGroup{ctx: ctx}
-	group.Go("", total, fn)
-	group.Wait()
-	if err := group.Error(); err != nil {
-		gErr := err.(*GroupError)
-		return gErr.Errors[""]
-	}
-	return nil
+func (ctx *Ctx) Progress(title string, total float64) *Bar {
+	return ctx.NewProgressGroup().Add(title, total)
 }
 
 // NewProgressGroup will create a new progress bar group the will track multiple bars
 func (ctx *Ctx) NewProgressGroup() *ProgressGroup {
-	return &ProgressGroup{ctx: ctx}
+	return &ProgressGroup{ctx: ctx, screen: term.NewScreenBuf(ctx.Writer())}
 }
 
-// Go will add another bar to the group
-func (pg *ProgressGroup) Go(title string, max float64, fn func(*Ctx, *Bar) error) {
+// Add will add another bar to the group
+func (pg *ProgressGroup) Add(title string, max float64) *Bar {
 	pg.wg.Add(1)
 	if title != "" {
 		title += " "
 	}
-	s := &Bar{ctx: pg.ctx, Title: title, total: max}
+	s := &Bar{ctx: pg.ctx, group: pg, Title: title, total: max}
 	pg.Items = append(pg.Items, s)
-	go func() {
-		defer pg.wg.Done()
-		s.err = fn(pg.ctx, s)
-		s.done = true
-	}()
+	pg.render()
+	return s
 }
 
-// Wait will pause until all of the progress bars are complete
-func (pg *ProgressGroup) Wait() {
-	done := false
-	sb := term.NewScreenBuf(pg.ctx.Writer())
-	defer sb.Done()
-
-	go func() {
-		for !done {
-			pg.render(sb)
-			time.Sleep(50 * time.Millisecond)
-		}
-	}()
-	pg.wg.Wait()
-	done = true
-	pg.render(sb)
-}
-
-func (pg *ProgressGroup) Error() error {
-	err := &GroupError{Errors: map[string]error{}}
-	for _, bar := range pg.Items {
-		if bar.err != nil {
-			err.Errors[bar.Title] = bar.err
+func (pg *ProgressGroup) AllDone() bool {
+	for _, s := range pg.Items {
+		if !s.done {
+			return false
 		}
 	}
-	if len(err.Errors) == 0 {
-		return nil
+	return true
+}
+
+func (pg *ProgressGroup) render() {
+	if pg.screen == nil {
+		return
 	}
-	return err
-}
-
-func (pg *ProgressGroup) render(sb *term.ScreenBuf) {
-	sb.WriteTmpl(progressTemplate, pg)
-}
-
-// Bar is a single progress bar
-type Bar struct {
-	ctx     *Ctx
-	Title   string
-	DoneBar string
-	RestBar string
-	Prefix  string
-	Percent string
-	current float64
-	total   float64
-	err     error
-	done    bool
-	mut     sync.Mutex
+	pg.screen.WriteTmpl(progressTemplate, pg)
 }
 
 // Tick allows to increment the value of the bar
@@ -117,6 +95,18 @@ func (bar *Bar) Set(val float64) {
 	bar.set(val)
 }
 
+func (bar *Bar) Done() {
+	bar.mut.Lock()
+	defer bar.mut.Unlock()
+	bar.done = true
+	bar.set(bar.total)
+}
+
+func (bar *Bar) Fail(err error) {
+	bar.err = err
+	bar.Done()
+}
+
 func (bar *Bar) set(val float64) {
 	bar.current = math.Max(0, math.Min(val, bar.total))
 	bar.done = bar.current == bar.total
@@ -128,4 +118,5 @@ func (bar *Bar) set(val float64) {
 	bar.DoneBar = strings.Repeat("█", int(done))
 	bar.RestBar = strings.Repeat("░", int(math.Max(float64(barwidth)-done, 0)))
 	bar.Prefix = bar.ctx.Prefix()
+	bar.group.render()
 }

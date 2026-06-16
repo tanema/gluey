@@ -9,8 +9,6 @@ import (
 	"text/template"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/k0kubun/go-ansi"
 )
 
 type attribute int
@@ -80,8 +78,8 @@ var funcMap = template.FuncMap{
 	"iconBox":  iconer(iconCheckbox),
 }
 
-func styler(attr attribute) func(interface{}) string {
-	return func(v interface{}) string {
+func styler(attr attribute) func(any) string {
+	return func(v any) string {
 		s, ok := v.(string)
 		if ok && s == ">>" {
 			return fmt.Sprintf("\033[%sm", strconv.Itoa(int(attr)))
@@ -95,11 +93,11 @@ func iconer(ic icon) func() string {
 }
 
 // Sprintf formats a string template and outputs console ready text
-func Sprintf(in string, data interface{}) string {
+func Sprintf(in string, data any) string {
 	return string(renderStringTemplate(in, data))
 }
 
-func renderStringTemplate(in string, data interface{}) []byte {
+func renderStringTemplate(in string, data any) []byte {
 	tpl, err := template.New("").Funcs(funcMap).Parse(in)
 	if err != nil {
 		panic(err)
@@ -123,7 +121,6 @@ type ScreenBuf struct {
 
 // NewScreenBuf creates and initializes a new ScreenBuf.
 func NewScreenBuf(w io.Writer) *ScreenBuf {
-	ansi.CursorHide()
 	return &ScreenBuf{buf: &bytes.Buffer{}, w: w}
 }
 
@@ -136,7 +133,7 @@ func (s *ScreenBuf) reset() {
 // WriteTmpl will write a text/template out to the console, using a mutex so that
 // only a single writer at a time can write. This prevents the buffer from losing
 // sync with the newlines
-func (s *ScreenBuf) WriteTmpl(in string, data interface{}) {
+func (s *ScreenBuf) WriteTmpl(in string, data any) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.reset()
@@ -147,11 +144,6 @@ func (s *ScreenBuf) WriteTmpl(in string, data interface{}) {
 		tmpl = append(tmpl, '\n')
 	}
 	s.buf.Write(tmpl)
-}
-
-// Done will show the cursor again and give back control
-func (s *ScreenBuf) Done() {
-	ansi.CursorShow()
 }
 
 func (s *ScreenBuf) flush() {

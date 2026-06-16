@@ -82,9 +82,9 @@ type selectTemplateData struct {
 	Cursor      int
 }
 
-// Select represents a list of items used to enable selections, they can be used as search engines, menus
+// Selector represents a list of items used to enable selections, they can be used as search engines, menus
 // or as a list of items in a cli based prompt.
-type Select struct {
+type Selector struct {
 	ctx        *Ctx
 	label      string
 	items      []*selectItem
@@ -113,8 +113,30 @@ func convertSelectItems(in []string) []*selectItem {
 	return out
 }
 
-func newSelect(ctx *Ctx, label string, items []string) *Select {
-	sel := &Select{
+// Select will propt the user with a list and will allow them to select a single option
+func (ctx *Ctx) Select(label string, items []string) (int, string, error) {
+	indexes, items, err := newSelect(ctx, label, items).run()
+	if len(indexes) == 0 && len(items) == 0 {
+		return -1, "", err
+	}
+	return indexes[0], items[0], err
+}
+
+func Select(label string, items []string) (int, string, error) {
+	return New().Select(label, items)
+}
+
+// SelectMultiple will propt the user with a list and will allow them to select multiple options
+func (ctx *Ctx) SelectMultiple(label string, items []string) ([]int, []string, error) {
+	return newMultipleSelect(ctx, label, items).run()
+}
+
+func SelectMultiple(label string, items []string) ([]int, []string, error) {
+	return New().SelectMultiple(label, items)
+}
+
+func newSelect(ctx *Ctx, label string, items []string) *Selector {
+	sel := &Selector{
 		ctx:   ctx,
 		label: label,
 		items: convertSelectItems(items),
@@ -124,8 +146,8 @@ func newSelect(ctx *Ctx, label string, items []string) *Select {
 	return sel
 }
 
-func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
-	sel := &Select{
+func newMultipleSelect(ctx *Ctx, label string, items []string) *Selector {
+	sel := &Selector{
 		ctx:      ctx,
 		label:    label,
 		items:    convertSelectItems(items),
@@ -140,7 +162,7 @@ func newMultipleSelect(ctx *Ctx, label string, items []string) *Select {
 // value within to list. Run will keep the prompt alive until it has been canceled from
 // the command prompt or it has received a valid value. It will return the value and an error if any
 // occurred during the select's execution.
-func (s *Select) run() ([]int, []string, error) {
+func (s *Selector) run() ([]int, []string, error) {
 	s.done = false
 	stdin := readline.NewCancelableStdin(os.Stdin)
 	c := &readline.Config{
@@ -159,7 +181,6 @@ func (s *Select) run() ([]int, []string, error) {
 	}
 
 	sb := term.NewScreenBuf(rl)
-	defer sb.Done()
 
 	c.SetListener(func(line []rune, pos int, key rune) ([]rune, int, bool) {
 		s.listen(line, key)
@@ -183,7 +204,7 @@ func (s *Select) run() ([]int, []string, error) {
 	return indexes, items, err
 }
 
-func (s *Select) listen(line []rune, key rune) {
+func (s *Selector) listen(line []rune, key rune) {
 	switch s.mode {
 	case normal:
 		switch key {
@@ -242,7 +263,7 @@ func (s *Select) listen(line []rune, key rune) {
 	}
 }
 
-func (s *Select) keyedSelectItem(key rune) {
+func (s *Selector) keyedSelectItem(key rune) {
 	if !unicode.IsNumber(key) {
 		return
 	}
@@ -263,7 +284,7 @@ func (s *Select) keyedSelectItem(key rune) {
 	s.selectItem(cur - 1)
 }
 
-func (s *Select) selectItem(cursor int) {
+func (s *Selector) selectItem(cursor int) {
 	if len(s.scope) == 0 && cursor < 0 && cursor >= len(s.scope) {
 		return
 	}
@@ -274,7 +295,7 @@ func (s *Select) selectItem(cursor int) {
 	}
 }
 
-func (s *Select) search(term string) {
+func (s *Selector) search(term string) {
 	term = strings.Trim(term, " ")
 	s.cursor = 0
 	s.start = 0
@@ -287,7 +308,7 @@ func (s *Select) search(term string) {
 	s.scope = scope
 }
 
-func (s *Select) cancelSearch() {
+func (s *Selector) cancelSearch() {
 	s.mode = normal
 	s.cursor = 0
 	s.start = 0
@@ -295,7 +316,7 @@ func (s *Select) cancelSearch() {
 }
 
 // SetCursor will set the list cursor to a single item in the list
-func (s *Select) SetCursor(i int) {
+func (s *Selector) SetCursor(i int) {
 	s.cursor = clamp(i, 0, len(s.scope)-1)
 	if s.start > s.cursor {
 		s.start = s.cursor
@@ -307,7 +328,7 @@ func (s *Select) SetCursor(i int) {
 	}
 }
 
-func (s *Select) next() {
+func (s *Selector) next() {
 	if s.cursor >= len(s.scope)-1 {
 		s.SetCursor(0)
 	} else {
@@ -315,7 +336,7 @@ func (s *Select) next() {
 	}
 }
 
-func (s *Select) prev() {
+func (s *Selector) prev() {
 	if s.cursor <= 0 {
 		s.SetCursor(len(s.scope) - 1)
 	} else {
@@ -323,7 +344,7 @@ func (s *Select) prev() {
 	}
 }
 
-func (s *Select) scopedItems() []*selectItem {
+func (s *Selector) scopedItems() []*selectItem {
 	var items []*selectItem
 	for i := s.start; i < min(s.start+s.size, len(s.scope)); i++ {
 		items = append(items, s.scope[i])
@@ -331,7 +352,7 @@ func (s *Select) scopedItems() []*selectItem {
 	return items
 }
 
-func (s *Select) selectedItems() []*selectItem {
+func (s *Selector) selectedItems() []*selectItem {
 	selected := []*selectItem{}
 	for _, item := range s.items {
 		if item.Chosen {
@@ -342,7 +363,7 @@ func (s *Select) selectedItems() []*selectItem {
 }
 
 // Selected returns the options that have been chosen
-func (s *Select) Selected() ([]int, []string) {
+func (s *Selector) Selected() ([]int, []string) {
 	indexes := []int{}
 	selected := []string{}
 	for _, item := range s.items {
@@ -354,7 +375,7 @@ func (s *Select) Selected() ([]int, []string) {
 	return indexes, selected
 }
 
-func (s *Select) selectedLabel() string {
+func (s *Selector) selectedLabel() string {
 	selected := s.selectedItems()
 	if len(selected) == 1 {
 		return selected[0].Label
@@ -366,7 +387,7 @@ func (s *Select) selectedLabel() string {
 	return "<nothing>"
 }
 
-func (s *Select) render(sb *term.ScreenBuf) {
+func (s *Selector) render(sb *term.ScreenBuf) {
 	template := selectTemplate
 	templateData := selectTemplateData{
 		Prefix:      s.ctx.Prefix(),
