@@ -29,6 +29,15 @@ type Frame struct {
 	closeTitle string
 }
 
+// InFrame will format output to be inside a frame
+func (ctx *Ctx) InFrame(title string, fn FrameFunc) error {
+	return newFrame(ctx).run(title, fn)
+}
+
+func InFrame(title string, fn FrameFunc) error {
+	return newFrame(New()).run(title, fn)
+}
+
 func newFrame(ctx *Ctx) *Frame {
 	nestedCtx := &Ctx{Indent: ctx.Indent + 2}
 	frame := &Frame{ctx: ctx, nestedCtx: nestedCtx}
